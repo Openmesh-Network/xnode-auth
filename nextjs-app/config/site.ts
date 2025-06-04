@@ -1,6 +1,7 @@
-export type SiteConfig = typeof siteConfig
+export type SiteConfig = typeof siteConfig;
 
 export const siteConfig = {
-  name: "Xnode Nextjs Template",
-  description: "Template to make your Nextjs app Xnode/Nix compatible.",
-} as const
+  name: "Xnode Auth",
+  description: "Web3 authenticator and login dashboard.",
+  url: "https://auth.xnode.openmesh.network",
+} as const;

@@ -1,6 +1,10 @@
+import "@/app/global.css";
+
 import { Metadata, Viewport } from "next";
 
 import { siteConfig } from "@/config/site";
+import Web3Provider from "@/components/web3-provider";
+import { headers } from "next/headers";
 
 export const metadata: Metadata = {
   title: {
@@ -9,9 +13,9 @@ export const metadata: Metadata = {
   },
   description: siteConfig.description,
   icons: {
-    icon: "/icon.png",
-    shortcut: "/icon.png",
-    apple: "/icon.png",
+    icon: "/xnode-auth/icon.png",
+    shortcut: "/xnode-auth/icon.png",
+    apple: "/xnode-auth/icon.png",
   },
 };
 
@@ -26,12 +30,16 @@ interface RootLayoutProps {
   children: React.ReactNode;
 }
 
-export default function RootLayout({ children }: RootLayoutProps) {
+export default async function RootLayout({ children }: RootLayoutProps) {
+  const cookies = (await headers()).get("cookie");
+
   return (
     <>
       <html>
         <head />
-        <body>{children}</body>
+        <body>
+          <Web3Provider cookies={cookies}>{children}</Web3Provider>
+        </body>
       </html>
     </>
   );

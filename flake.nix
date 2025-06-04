@@ -1,5 +1,5 @@
 {
-  description = "Nextjs app running on Xnode!";
+  description = "Web3 authenticator and login dashboard.";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-unstable";

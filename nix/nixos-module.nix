@@ -5,18 +5,18 @@
   ...
 }:
 let
-  cfg = config.services.xnode-nextjs-template;
-  xnode-nextjs-template = pkgs.callPackage ./package.nix { };
+  cfg = config.services.xnode-auth;
+  xnode-auth = pkgs.callPackage ./package.nix { };
 in
 {
   options = {
-    services.xnode-nextjs-template = {
-      enable = lib.mkEnableOption "Enable the nextjs app";
+    services.xnode-auth = {
+      enable = lib.mkEnableOption "Enable Xnode Auth";
 
       hostname = lib.mkOption {
         type = lib.types.str;
-        default = "0.0.0.0";
-        example = "127.0.0.1";
+        default = "localhost";
+        example = "0.0.0.0";
         description = ''
           The hostname under which the app should be accessible.
         '';
@@ -24,48 +24,54 @@ in
 
       port = lib.mkOption {
         type = lib.types.port;
-        default = 3000;
-        example = 3000;
+        default = 34401;
+        example = 34401;
         description = ''
           The port under which the app should be accessible.
         '';
       };
 
-      openFirewall = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
+      access = lib.mkOption {
+        type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+        default = { };
+        example = {
+          "example.com" = [ "eth:0000000000000000000000000000000000000000" ];
+          "admin.plopmenz.com" = [
+            "eth:0000000000000000000000000000000000000000"
+            "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3"
+          ];
+        };
         description = ''
-          Whether to open ports in the firewall for this application.
+          The addresses that have access to each domain.
         '';
       };
     };
   };
 
   config = lib.mkIf cfg.enable {
-    users.groups.xnode-nextjs-template = { };
-    users.users.xnode-nextjs-template = {
+    users.groups.xnode-auth = { };
+    users.users.xnode-auth = {
       isSystemUser = true;
-      group = "xnode-nextjs-template";
+      group = "xnode-auth";
     };
 
-    systemd.services.xnode-nextjs-template = {
+    systemd.services.xnode-auth = {
       wantedBy = [ "multi-user.target" ];
-      description = "Nextjs App.";
+      description = "Web3 authenticator and login dashboard.";
       after = [ "network.target" ];
-      environment = {
-        HOSTNAME = cfg.hostname;
-        PORT = toString cfg.port;
-      };
+      environment = lib.mkMerge [
+        {
+          HOSTNAME = cfg.hostname;
+          PORT = toString cfg.port;
+        }
+        (lib.attrsets.mapAttrs (domain: accessList: builtins.toJSON accessList) cfg.access)
+      ];
       serviceConfig = {
-        ExecStart = "${lib.getExe xnode-nextjs-template}";
-        User = "xnode-nextjs-template";
-        Group = "xnode-nextjs-template";
+        ExecStart = "${lib.getExe xnode-auth}";
+        User = "xnode-auth";
+        Group = "xnode-auth";
         CacheDirectory = "nextjs-app";
       };
-    };
-
-    networking.firewall = lib.mkIf cfg.openFirewall {
-      allowedTCPPorts = [ cfg.port ];
     };
   };
 }
