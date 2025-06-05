@@ -5,7 +5,7 @@ export function hasAccess({
   address: string;
   domain: string;
 }): boolean {
-  const accessList = process.env[domain];
+  const accessList = process.env[`ACCESSLIST_${domain}`];
   if (!accessList) {
     return false;
   }

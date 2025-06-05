@@ -31,19 +31,71 @@ in
         '';
       };
 
-      access = lib.mkOption {
-        type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+      domains = lib.mkOption {
+        type = lib.types.attrsOf (
+          lib.types.submodule {
+            options = {
+              accessList = lib.mkOption {
+                type = lib.types.listOf lib.types.str;
+                example = [
+                  "eth:0000000000000000000000000000000000000000"
+                  "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3"
+                ];
+                description = ''
+                  Users to which access is granted.
+                '';
+              };
+
+              paths = lib.mkOption {
+                type = lib.types.listOf lib.types.str;
+                default = [ "/" ];
+                example = [
+                  "/admin"
+                  "/secret"
+                ];
+                description = ''
+                  Paths to protect with the accessList authentication.
+                '';
+              };
+            };
+          }
+        );
         default = { };
         example = {
-          "example.com" = [ "eth:0000000000000000000000000000000000000000" ];
-          "admin.plopmenz.com" = [
-            "eth:0000000000000000000000000000000000000000"
-            "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3"
-          ];
+          "example.com" = {
+            accessList = [ "eth:0000000000000000000000000000000000000000" ];
+            paths = [ "/admin" ];
+          };
+          "admin.plopmenz.com" = {
+            accessList = [
+              "eth:0000000000000000000000000000000000000000"
+              "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3"
+            ];
+          };
         };
         description = ''
-          The addresses that have access to each domain.
+          Domain configuration of each domain that wants to use xnode-auth. Should match desired nginx virtualHost name.
         '';
+      };
+
+      nginxConfig = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          example = false;
+          description = ''
+            Update the Nginx config to add auth to the configured domains and paths.
+          '';
+        };
+
+        subpath = lib.mkOption {
+          type = lib.types.str;
+          default = "/xnode-auth";
+          example = "/auth";
+          description = ''
+            The subpath used for xnode-auth endpoints.
+          '';
+        };
       };
     };
   };
@@ -64,7 +116,17 @@ in
           HOSTNAME = cfg.hostname;
           PORT = toString cfg.port;
         }
-        (lib.attrsets.mapAttrs (domain: accessList: builtins.toJSON accessList) cfg.access)
+        (builtins.listToAttrs (
+          lib.attrsets.foldlAttrs (
+            acc: domain: access:
+            acc
+            ++ [
+              (lib.attrsets.nameValuePair "ACCESSLIST_${if (config.services.nginx.virtualHosts.${domain}.serverName == null) then domain else config.services.nginx.virtualHosts.${domain}.serverName}" (
+                builtins.toJSON access.accessList
+              ))
+            ]
+          ) [ ] cfg.domains
+        ))
       ];
       serviceConfig = {
         ExecStart = "${lib.getExe xnode-auth}";
@@ -73,5 +135,40 @@ in
         CacheDirectory = "nextjs-app";
       };
     };
+
+    services.nginx.virtualHosts = lib.mkIf cfg.nginxConfig.enable (
+      lib.attrsets.mapAttrs (domain: access: {
+        locations = lib.mkMerge [
+          (builtins.listToAttrs (
+            builtins.map (
+              location:
+              lib.attrsets.nameValuePair location {
+                extraConfig = ''
+                  auth_request /xnode-auth/api/validate;
+                  error_page 401 = @login;
+                '';
+              }
+            ) access.paths
+
+          ))
+          {
+            "${cfg.nginxConfig.subpath}" = {
+              proxyPass = "http://localhost:${builtins.toString cfg.port}";
+            };
+            "${cfg.nginxConfig.subpath}/api/validate" = {
+              proxyPass = "http://localhost:${builtins.toString cfg.port}${cfg.nginxConfig.subpath}/api/validate";
+              extraConfig = ''
+                proxy_set_header Host $host;
+                proxy_pass_request_body off;
+                proxy_set_header Content-Length "";
+              '';
+            };
+            "@login" = {
+              return = "302 $scheme://$host${cfg.nginxConfig.subpath}?redirect=$scheme://$host$request_uri";
+            };
+          }
+        ];
+      }) cfg.domains
+    );
   };
 }
