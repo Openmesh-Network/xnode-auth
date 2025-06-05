@@ -5,10 +5,12 @@ export function hasAccess({
   address: string;
   domain: string;
 }): boolean {
-  const accessList = process.env[`ACCESSLIST_${domain}`];
+  const accessList = process.env[`XNODEAUTH_ACCESSLIST`];
   if (!accessList) {
     return false;
   }
 
-  return (JSON.parse(accessList) as string[]).includes(address);
+  return (JSON.parse(accessList) as { [domain: string]: string[] })[
+    domain
+  ].includes(address);
 }

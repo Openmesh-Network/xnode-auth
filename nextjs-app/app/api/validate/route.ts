@@ -9,11 +9,15 @@ export async function GET(req: NextRequest) {
     const cookies = await getCookies();
     const signature = cookies.get("xnode_auth_signature")?.value;
     const timestamp = cookies.get("xnode_auth_timestamp")?.value;
-    const domain = req.nextUrl.hostname;
+    const domain = req.headers.get("Host");
+
     if (!isHex(signature)) {
       throw new Error();
     }
     if (!timestamp || isNaN(Number(timestamp))) {
+      throw new Error();
+    }
+    if (!domain) {
       throw new Error();
     }
 

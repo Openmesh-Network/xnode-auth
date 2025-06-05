@@ -111,23 +111,26 @@ in
       wantedBy = [ "multi-user.target" ];
       description = "Web3 authenticator and login dashboard.";
       after = [ "network.target" ];
-      environment = lib.mkMerge [
-        {
-          HOSTNAME = cfg.hostname;
-          PORT = toString cfg.port;
-        }
-        (builtins.listToAttrs (
-          lib.attrsets.foldlAttrs (
-            acc: domain: access:
-            acc
-            ++ [
-              (lib.attrsets.nameValuePair "ACCESSLIST_${if (config.services.nginx.virtualHosts.${domain}.serverName == null) then domain else config.services.nginx.virtualHosts.${domain}.serverName}" (
-                builtins.toJSON access.accessList
-              ))
-            ]
-          ) [ ] cfg.domains
-        ))
-      ];
+      environment = {
+        HOSTNAME = cfg.hostname;
+        PORT = toString cfg.port;
+        XNODEAUTH_ACCESSLIST = builtins.toJSON (
+          builtins.listToAttrs (
+            lib.attrsets.foldlAttrs (
+              acc: domain: access:
+              acc
+              ++ [
+                (lib.attrsets.nameValuePair (
+                  if (config.services.nginx.virtualHosts.${domain}.serverName == null) then
+                    domain
+                  else
+                    config.services.nginx.virtualHosts.${domain}.serverName
+                ) (access.accessList))
+              ]
+            ) [ ] cfg.domains
+          )
+        );
+      };
       serviceConfig = {
         ExecStart = "${lib.getExe xnode-auth}";
         User = "xnode-auth";
@@ -154,6 +157,9 @@ in
           {
             "${cfg.nginxConfig.subpath}" = {
               proxyPass = "http://localhost:${builtins.toString cfg.port}";
+              extraConfig = ''
+                proxy_set_header Host $host;
+              '';
             };
             "${cfg.nginxConfig.subpath}/api/validate" = {
               proxyPass = "http://localhost:${builtins.toString cfg.port}${cfg.nginxConfig.subpath}/api/validate";

@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const signature = body.signature;
     const timestamp = body.timestamp;
-    const domain = req.nextUrl.hostname;
+    const domain = req.headers.get("Host");
 
     if (!isHex(signature)) {
       throw new Error(`Signature ${signature} is not valid.`);
@@ -20,6 +20,9 @@ export async function POST(req: NextRequest) {
       isNaN(Number(timestamp))
     ) {
       throw new Error(`Timestamp ${timestamp} is not valid.`);
+    }
+    if (!domain) {
+      throw new Error();
     }
 
     const address = await getXnodeAddress({ domain, timestamp, signature });
