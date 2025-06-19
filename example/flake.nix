@@ -30,22 +30,40 @@
           nixpkgs.hostPlatform = "x86_64-linux";
           system.stateVersion = "25.05";
           services.xnode-auth.domains."xnode-auth-demo" = {
-            accessList = [ "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" ];
+            accessList = {
+              "regex:^eth:.*$" = {
+                paths = "^\/private(?:\?.*)?$";
+              };
+              "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = { };
+            };
+            paths = [
+              "/private"
+              "/admin"
+            ];
           };
           # END USER CONFIG
 
           services.nginx = {
             enable = true;
             virtualHosts."xnode-auth-demo" = {
-              serverName = "localhost";
+              serverName = "xnode-auth.container";
               locations."/" = {
-                proxyPass = "http://localhost:3000"; # xnode-auth-demo
+                proxyPass = "http://127.0.0.1:3000"; # xnode-auth-demo
+              };
+              # Separate location entries are requires if the root is not protected
+              locations."/private" = {
+                proxyPass = "http://127.0.0.1:3000";
+              };
+              locations."/admin" = {
+                proxyPass = "http://127.0.0.1:3000";
               };
             };
           };
 
           services.xnode-auth.enable = true;
           services.xnode-auth-demo.enable = true; # Example application to protect
+
+          networking.firewall.allowedTCPPorts = [ 80 ];
         }
       ];
     };

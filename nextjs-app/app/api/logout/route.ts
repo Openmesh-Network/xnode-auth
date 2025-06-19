@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 export async function POST(req: NextRequest) {
   try {
     const cookies = await getCookies();
+    cookies.delete("xnode_auth_user");
     cookies.delete("xnode_auth_signature");
     cookies.delete("xnode_auth_timestamp");
 

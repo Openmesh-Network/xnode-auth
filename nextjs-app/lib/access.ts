@@ -1,16 +1,27 @@
 export function hasAccess({
-  address,
+  users,
   domain,
+  path,
 }: {
-  address: string;
+  users: string[];
   domain: string;
-}): boolean {
-  const accessList = process.env[`XNODEAUTH_ACCESSLIST`];
-  if (!accessList) {
-    return false;
+  path: string;
+}): string | undefined {
+  const accessListEnv = process.env[`XNODEAUTH_ACCESSLIST`];
+  if (!accessListEnv) {
+    return undefined;
   }
 
-  return (JSON.parse(accessList) as { [domain: string]: string[] })[
-    domain
-  ].includes(address);
+  const accessList: {
+    [domain: string]: { [user: string]: { paths: string } };
+  } = JSON.parse(accessListEnv);
+  return users.find((user) =>
+    Object.keys(accessList[domain]).some(
+      (userReg) =>
+        (userReg.startsWith("regex:")
+          ? new RegExp(userReg.replace("regex:", "")).test(user)
+          : userReg === user) &&
+        new RegExp(accessList[domain][userReg].paths).test(path)
+    )
+  );
 }

@@ -1,11 +1,12 @@
 "use client";
 
 import { getMessage } from "@/lib/message";
+import { getXnodeAddress } from "@/lib/xnode-address";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 
-export function Login() {
+export function Login({ deniedForUser }: { deniedForUser?: string }) {
   const searchParams = useSearchParams();
   const [redirect, setRedirect] = useState<string>("");
   useEffect(() => {
@@ -17,6 +18,11 @@ export function Login() {
   const { signMessageAsync, isPending, error: signError } = useSignMessage();
 
   const [loginError, setLoginError] = useState<string>("");
+  useEffect(() => {
+    if (deniedForUser) {
+      setLoginError(`Access denied for ${deniedForUser}`);
+    }
+  }, [deniedForUser]);
 
   return (
     <div className="flex flex-col place-items-center gap-5 px-5 py-8 bg-black text-white/90 text-center rounded-lg max-w-[500px]">
@@ -68,19 +74,25 @@ export function Login() {
             onClick={() => {
               setLoginError("");
               const timestamp = Math.round(Date.now() / 1000); // EPOCH time in seconds
+              const domain = window.location.hostname;
               signMessageAsync({
                 message: getMessage({
-                  domain: window.location.hostname,
+                  domain,
                   timestamp,
                 }),
               })
-                .then((signature) =>
+                .then(async (signature) =>
                   fetch("/xnode-auth/api/login", {
                     method: "POST",
                     headers: {
                       "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
+                      user: await getXnodeAddress({
+                        domain,
+                        signature,
+                        timestamp: timestamp.toString(),
+                      }),
                       signature,
                       timestamp: timestamp.toString(),
                     }),

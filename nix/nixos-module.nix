@@ -36,11 +36,26 @@ in
           lib.types.submodule {
             options = {
               accessList = lib.mkOption {
-                type = lib.types.listOf lib.types.str;
-                example = [
-                  "eth:0000000000000000000000000000000000000000"
-                  "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3"
-                ];
+                type = lib.types.attrsOf (
+                  lib.types.submodule {
+                    options = {
+                      paths = lib.mkOption {
+                        type = lib.types.str;
+                        default = ".*";
+                        example = "^(?:\/admin|\/secret)(?:\?.*)?$";
+                        description = ''
+                          Regex of paths to protect with the accessList authentication.
+                        '';
+                      };
+                    };
+                  }
+                );
+                example = {
+                  "regex:^eth:*.$" = {
+                    paths = "^\/user\/profile(?:\?.*)?$";
+                  };
+                  "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = { };
+                };
                 description = ''
                   Users to which access is granted.
                 '';
@@ -63,13 +78,22 @@ in
         default = { };
         example = {
           "example.com" = {
-            accessList = [ "eth:0000000000000000000000000000000000000000" ];
-            paths = [ "/admin" ];
+            accessList = {
+              "regex:^eth:*.$" = { };
+            };
           };
           "admin.plopmenz.com" = {
-            accessList = [
-              "eth:0000000000000000000000000000000000000000"
-              "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3"
+            accessList = {
+              "eth:0000000000000000000000000000000000000000" = {
+                paths = "^\/secret-admin(?:\?.*)?$";
+              };
+              "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = {
+                paths = "^\/admin(?:\?.*)?$";
+              };
+            };
+            paths = [
+              "/secret-admin"
+              "/admin"
             ];
           };
         };
@@ -125,7 +149,7 @@ in
                     domain
                   else
                     config.services.nginx.virtualHosts.${domain}.serverName
-                ) (access.accessList))
+                ) access.accessList)
               ]
             ) [ ] cfg.domains
           )
@@ -148,11 +172,12 @@ in
               lib.attrsets.nameValuePair location {
                 extraConfig = ''
                   auth_request /xnode-auth/api/validate;
+                  auth_request_set $auth_resp_xnode_auth_user $upstream_http_xnode_auth_user;
+                  proxy_set_header Xnode-Auth-User $auth_resp_xnode_auth_user;
                   error_page 401 = @login;
                 '';
               }
             ) access.paths
-
           ))
           {
             "${cfg.nginxConfig.subpath}" = {
@@ -165,6 +190,8 @@ in
               proxyPass = "http://localhost:${builtins.toString cfg.port}${cfg.nginxConfig.subpath}/api/validate";
               extraConfig = ''
                 proxy_set_header Host $host;
+                proxy_set_header Path $request_uri;
+
                 proxy_pass_request_body off;
                 proxy_set_header Content-Length "";
               '';
