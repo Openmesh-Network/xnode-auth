@@ -183,13 +183,13 @@ in
             "${cfg.nginxConfig.subpath}" = {
               proxyPass = "http://localhost:${builtins.toString cfg.port}";
               extraConfig = ''
-                proxy_set_header Host $host;
+                proxy_set_header Host $server_name;
               '';
             };
             "${cfg.nginxConfig.subpath}/api/validate" = {
               proxyPass = "http://localhost:${builtins.toString cfg.port}${cfg.nginxConfig.subpath}/api/validate";
               extraConfig = ''
-                proxy_set_header Host $host;
+                proxy_set_header Host $server_name;
                 proxy_set_header Path $request_uri;
 
                 proxy_pass_request_body off;
