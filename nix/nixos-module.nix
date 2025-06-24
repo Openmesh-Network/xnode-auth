@@ -194,6 +194,10 @@ in
 
                 proxy_pass_request_body off;
                 proxy_set_header Content-Length "";
+
+                if ($request_method = OPTIONS ) {
+                  return 200;
+                }
               '';
             };
             "@login" = {
