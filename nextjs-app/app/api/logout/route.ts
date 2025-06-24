@@ -1,5 +1,13 @@
 import { cookies as getCookies } from "next/headers";
 import { NextRequest } from "next/server";
+import { corsHeaders } from "../cors";
+
+export async function OPTIONS(req: NextRequest) {
+  return new Response(null, {
+    status: 204,
+    headers: { Allow: "OPTIONS, POST", ...corsHeaders(req.headers) },
+  });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,8 +16,14 @@ export async function POST(req: NextRequest) {
     cookies.delete("xnode_auth_signature");
     cookies.delete("xnode_auth_timestamp");
 
-    return Response.json({}, { status: 200 });
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders(req.headers),
+    });
   } catch (err: any) {
-    return Response.json({ error: err?.message ?? err }, { status: 500 });
+    return Response.json(
+      { error: err?.message ?? err },
+      { status: 500, headers: corsHeaders(req.headers) }
+    );
   }
 }

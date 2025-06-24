@@ -3,6 +3,14 @@ import { getXnodeAddress } from "@/lib/xnode-address";
 import { cookies as getCookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { isHex } from "viem";
+import { corsHeaders } from "../cors";
+
+export async function OPTIONS(req: NextRequest) {
+  return new Response(null, {
+    status: 204,
+    headers: { Allow: "OPTIONS, GET", ...corsHeaders(req.headers) },
+  });
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -51,11 +59,14 @@ export async function GET(req: NextRequest) {
       throw new Error();
     }
 
-    return Response.json(
-      {},
-      { status: 200, headers: [["Xnode-Auth-User", user]] }
-    );
+    return new Response(null, {
+      status: 200,
+      headers: { "Xnode-Auth-User": user, ...corsHeaders(req.headers) },
+    });
   } catch (err: any) {
-    return Response.json({}, { status: 401 });
+    return new Response(null, {
+      status: 401,
+      headers: corsHeaders(req.headers),
+    });
   }
 }

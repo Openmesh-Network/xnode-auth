@@ -1,6 +1,14 @@
 import { cookies as getCookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { isHex } from "viem";
+import { corsHeaders } from "../cors";
+
+export async function OPTIONS(req: NextRequest) {
+  return new Response(null, {
+    status: 204,
+    headers: { Allow: "OPTIONS, POST", ...corsHeaders(req.headers) },
+  });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,7 +19,12 @@ export async function POST(req: NextRequest) {
       throw new Error(`User ${user} is not valid.`);
     }
 
-    cookies.set("xnode_auth_user", user);
+    const cookieOptions = {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+    } as const;
+    cookies.set("xnode_auth_user", user, cookieOptions);
     if (user?.startsWith("eth:")) {
       const signature = body.signature;
       const timestamp = body.timestamp;
@@ -27,12 +40,18 @@ export async function POST(req: NextRequest) {
         throw new Error(`Timestamp ${timestamp} is not valid.`);
       }
 
-      cookies.set("xnode_auth_signature", signature);
-      cookies.set("xnode_auth_timestamp", timestamp);
+      cookies.set("xnode_auth_signature", signature, cookieOptions);
+      cookies.set("xnode_auth_timestamp", timestamp, cookieOptions);
     }
 
-    return Response.json({}, { status: 200 });
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders(req.headers),
+    });
   } catch (err: any) {
-    return Response.json({ error: err?.message ?? err }, { status: 500 });
+    return Response.json(
+      { error: err?.message ?? err },
+      { status: 500, headers: corsHeaders(req.headers) }
+    );
   }
 }
