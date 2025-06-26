@@ -45,6 +45,8 @@ export async function GET(req: NextRequest) {
       if (requestedUser !== address) {
         requestedUser = undefined;
       }
+    } else {
+      requestedUser = undefined;
     }
 
     const user = hasAccess({
