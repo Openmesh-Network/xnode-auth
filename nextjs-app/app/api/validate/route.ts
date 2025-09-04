@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
       requestedUser = undefined;
     }
 
-    const user = hasAccess({
+    const user = await hasAccess({
       users: ([] as string[])
         .concat(ip ? [`ip:${ip}`] : [])
         .concat(requestedUser ? [requestedUser] : []),
