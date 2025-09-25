@@ -2,6 +2,7 @@ import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import { mainnet } from "viem/chains";
 import { createStorage, cookieStorage } from "wagmi";
 import { siteConfig } from "./site";
+import farcasterMiniApp from "@farcaster/miniapp-wagmi-connector";
 
 // Get projectId from https://cloud.reown.com
 export const projectId = "6afdeb3a0496b33061a69538819a9a7e";
@@ -20,6 +21,7 @@ export const wagmiAdapter = new WagmiAdapter({
   ssr: true,
   projectId,
   networks: [...networks],
+  connectors: [farcasterMiniApp()],
 });
 
 // Set up metadata

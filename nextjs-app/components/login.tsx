@@ -2,6 +2,7 @@
 
 import { getMessage } from "@/lib/message";
 import { getXnodeAddress } from "@/lib/xnode-address";
+import sdk from "@farcaster/miniapp-sdk";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
@@ -23,6 +24,11 @@ export function Login({ deniedForUser }: { deniedForUser?: string }) {
       setLoginError(`Access denied for ${deniedForUser}`);
     }
   }, [deniedForUser]);
+
+  useEffect(() => {
+    // Show Xnode Auth in Farcaster mini apps
+    sdk.actions.ready();
+  }, []);
 
   return (
     <div className="flex flex-col place-items-center gap-5 px-5 py-8 bg-black text-white/90 text-center rounded-lg max-w-[500px]">
