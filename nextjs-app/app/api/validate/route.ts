@@ -1,5 +1,5 @@
 import { hasAccess } from "@/lib/access";
-import { getXnodeAddress } from "@/lib/xnode-address";
+import { verifyXnodeUserEthAddress as verifyXnodeUserEthAddress } from "@/lib/xnode-address";
 import { cookies as getCookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { isHex } from "viem";
@@ -29,7 +29,10 @@ export async function GET(req: NextRequest) {
     const ip = req.headers.get("X-Forwarded-For");
 
     let requestedUser = cookies.get("xnode_auth_user")?.value;
-    if (requestedUser?.startsWith("eth:")) {
+    if (
+      requestedUser?.startsWith("eth:") ||
+      requestedUser?.startsWith("eth@")
+    ) {
       const signature = cookies.get("xnode_auth_signature")?.value;
       const timestamp = cookies.get("xnode_auth_timestamp")?.value;
 
@@ -41,8 +44,13 @@ export async function GET(req: NextRequest) {
         throw new Error();
       }
 
-      const address = await getXnodeAddress({ domain, timestamp, signature });
-      if (requestedUser !== address) {
+      const validSignature = await verifyXnodeUserEthAddress({
+        user: requestedUser,
+        domain,
+        timestamp,
+        signature,
+      });
+      if (!validSignature) {
         requestedUser = undefined;
       }
     } else {

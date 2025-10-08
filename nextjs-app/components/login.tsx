@@ -1,7 +1,7 @@
 "use client";
 
 import { getMessage } from "@/lib/message";
-import { getXnodeAddress } from "@/lib/xnode-address";
+import { toXnodeAddress } from "@/lib/xnode-address";
 import sdk from "@farcaster/miniapp-sdk";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -15,7 +15,7 @@ export function Login({ deniedForUser }: { deniedForUser?: string }) {
   }, [searchParams]);
   const { replace } = useRouter();
 
-  const { isConnected } = useAccount();
+  const { address } = useAccount();
   const { signMessageAsync, isPending, error: signError } = useSignMessage();
 
   const [loginError, setLoginError] = useState<string>("");
@@ -45,7 +45,7 @@ export function Login({ deniedForUser }: { deniedForUser?: string }) {
             : signError.message}
         </span>
       )}
-      {isConnected &&
+      {address &&
         (isPending ? (
           <div className="flex gap-2">
             <svg
@@ -94,11 +94,7 @@ export function Login({ deniedForUser }: { deniedForUser?: string }) {
                       "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
-                      user: await getXnodeAddress({
-                        domain,
-                        signature,
-                        timestamp: timestamp.toString(),
-                      }),
+                      user: toXnodeAddress({ address }),
                       signature,
                       timestamp: timestamp.toString(),
                     }),
