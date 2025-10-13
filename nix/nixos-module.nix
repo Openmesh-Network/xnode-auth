@@ -50,6 +50,7 @@ in
                     };
                   }
                 );
+                default = { };
                 example = {
                   "regex:^eth:*.$" = {
                     paths = "^\/user\/profile(?:\?.*)?$";
@@ -207,6 +208,19 @@ in
         '';
       };
 
+      config = {
+        eth = {
+          rpc = lib.mkOption {
+            type = lib.types.str;
+            default = "";
+            example = "https://mainnet.base.org";
+            description = ''
+              Use an RPC to validate smart account signatures.
+            '';
+          };
+        };
+      };
+
       nginxConfig = {
         enable = lib.mkOption {
           type = lib.types.bool;
@@ -263,6 +277,7 @@ in
                   ) [ ] cfg.domains
                 )
               );
+              XNODEAUTH_CONFIG = builtins.toJSON cfg.config;
             };
             serviceConfig = {
               ExecStart = "${lib.getExe xnode-auth}";

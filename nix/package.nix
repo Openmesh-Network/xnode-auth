@@ -1,7 +1,7 @@
 { pkgs, lib }:
 pkgs.buildNpmPackage {
   pname = "xnode-auth";
-  version = "1.1.1";
+  version = "1.1.2";
   src = ../nextjs-app;
 
   npmDeps = pkgs.importNpmLock {
