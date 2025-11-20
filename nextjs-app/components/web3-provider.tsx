@@ -28,6 +28,11 @@ createAppKit({
   defaultAccountTypes: {
     eip155: "eoa",
   },
+  // social features only work with projects that have whitelisted domains, which cannot be done for the default project id, as it would prevent it to be used on all websites
+  features:
+    projectId === "6afdeb3a0496b33061a69538819a9a7e"
+      ? { email: false, socials: false }
+      : undefined,
 });
 
 function Web3Provider({

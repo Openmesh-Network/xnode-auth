@@ -218,6 +218,15 @@ in
               Use an RPC to validate smart account signatures.
             '';
           };
+
+          projectid = lib.mkOption {
+            type = lib.types.str;
+            default = "6afdeb3a0496b33061a69538819a9a7e";
+            example = "6afdeb3a0496b33061a69538819a9a7e";
+            description = ''
+              Use a different reown project id.
+            '';
+          };
         };
       };
 

@@ -3,9 +3,10 @@ import { mainnet } from "viem/chains";
 import { createStorage, cookieStorage } from "wagmi";
 import { siteConfig } from "./site";
 import farcasterMiniApp from "@farcaster/miniapp-wagmi-connector";
+import { config } from "@/lib/config";
 
 // Get projectId from https://cloud.reown.com
-export const projectId = "6afdeb3a0496b33061a69538819a9a7e";
+export const projectId = config.eth.projectid;
 
 if (!projectId) {
   throw new Error("Project ID is not defined");
