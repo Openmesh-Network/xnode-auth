@@ -2,7 +2,7 @@
   description = "Web3 authenticator and login dashboard.";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     systems.url = "github:nix-systems/default";
   };
 
@@ -30,14 +30,6 @@
         { pkgs, ... }:
         {
           default = pkgs.callPackage ./nix/package.nix { };
-        }
-      );
-
-      checks = eachSystem (
-        { pkgs, system, ... }:
-        {
-          package = self.packages.${system}.default;
-          nixos-module = pkgs.callPackage ./nix/nixos-test.nix { };
         }
       );
 

@@ -267,7 +267,7 @@ in
             description = "Web3 authenticator and login dashboard.";
             after = [ "network.target" ];
             environment = {
-              HOSTNAME = cfg.hostname;
+              HOST = cfg.hostname;
               PORT = builtins.toString cfg.port;
               XNODEAUTH_EXTERNALSOURCES = builtins.toJSON cfg.externalSources;
               XNODEAUTH_MEMORY = builtins.toJSON (
@@ -292,7 +292,6 @@ in
               ExecStart = "${lib.getExe xnode-auth}";
               User = "xnode-auth";
               Group = "xnode-auth";
-              CacheDirectory = "nextjs-app";
             };
           };
         }

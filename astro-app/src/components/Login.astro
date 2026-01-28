@@ -1,0 +1,171 @@
+---
+import Logo from "../assets/logo.svg";
+import Connect from "../components/Connect.astro";
+---
+
+<div
+    class="flex flex-col place-items-center gap-5 px-5 py-8 bg-gray-950 text-gray-100 text-center rounded-lg max-w-[500px]"
+>
+    <div class="flex flex-col place-items-center gap-3">
+        <div class="flex place-items-center gap-4">
+            <Logo class="size-10" width={40} height={40} />
+            <span class="text-3xl font-semibold">Xnode Auth</span>
+        </div>
+        <span
+            >Log in with your web3 wallet to access <span
+                id="redirect"
+                class="font-semibold"></span></span
+        >
+    </div>
+    <Connect />
+    <span id="error" class="text-red-600 hidden"></span>
+    <div id="signing" class="gap-2 hidden">
+        <svg
+            class="text-gray-300 animate-spin"
+            viewBox="0 0 64 64"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+        >
+            <path
+                d="M32 3C35.8083 3 39.5794 3.75011 43.0978 5.20749C46.6163 6.66488 49.8132 8.80101 52.5061 11.4939C55.199 14.1868 57.3351 17.3837 58.7925 20.9022C60.2499 24.4206 61 28.1917 61 32C61 35.8083 60.2499 39.5794 58.7925 43.0978C57.3351 46.6163 55.199 49.8132 52.5061 52.5061C49.8132 55.199 46.6163 57.3351 43.0978 58.7925C39.5794 60.2499 35.8083 61 32 61C28.1917 61 24.4206 60.2499 20.9022 58.7925C17.3837 57.3351 14.1868 55.199 11.4939 52.5061C8.801 49.8132 6.66487 46.6163 5.20749 43.0978C3.7501 39.5794 3 35.8083 3 32C3 28.1917 3.75011 24.4206 5.2075 20.9022C6.66489 17.3837 8.80101 14.1868 11.4939 11.4939C14.1868 8.80099 17.3838 6.66487 20.9022 5.20749C24.4206 3.7501 28.1917 3 32 3L32 3Z"
+                stroke="currentColor"
+                stroke-width="5"
+                stroke-linecap="round"
+                stroke-linejoin="round"></path>
+            <path
+                d="M32 3C36.5778 3 41.0906 4.08374 45.1692 6.16256C49.2477 8.24138 52.7762 11.2562 55.466 14.9605C58.1558 18.6647 59.9304 22.9531 60.6448 27.4748C61.3591 31.9965 60.9928 36.6232 59.5759 40.9762"
+                stroke="currentColor"
+                stroke-width="5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="text-gray-900"></path>
+        </svg>
+        <span>Please sign the authentication message in your wallet.</span>
+    </div>
+    <button
+        id="authenticate"
+        class="px-4 py-2 rounded-lg bg-blue-950/80 hover:bg-blue-950 cursor-pointer hidden"
+        >Authenticate</button
+    >
+</div>
+<script>
+    import { wagmiAdapter } from "../scripts/appkit";
+    import { getMessage } from "../lib/message";
+    import { toXnodeAddress } from "../lib/xnode-address";
+    import { appkitStore } from "../store/appkit";
+    import { signMessage } from "@wagmi/core";
+
+    function setRedirect(redirect: string) {
+        const node = document.getElementById("redirect");
+        if (node) {
+            node.textContent = redirect;
+        }
+    }
+
+    function setError(error: string) {
+        const node = document.getElementById("error");
+        if (node) {
+            node.style.display = error ? "flex" : "none";
+            node.textContent = error;
+        }
+    }
+
+    let signingState = false;
+    function setSigning(signing: boolean) {
+        signingState = signing;
+        updateDisplay();
+    }
+
+    function updateDisplay() {
+        // Signing indicator
+        {
+            const node = document.getElementById("signing");
+            if (node) {
+                const account = appkitStore.account.get();
+                node.style.display = account && signingState ? "flex" : "none";
+            }
+        }
+
+        // Authenticate button
+        {
+            const node = document.getElementById("authenticate");
+            if (node) {
+                const account = appkitStore.account.get();
+                node.style.display = account && !signingState ? "flex" : "none";
+            }
+        }
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+
+    const redirect = urlParams.get("redirect") ?? window.location.origin;
+    setRedirect(redirect);
+
+    const rejected = urlParams.get("rejected");
+    setError(rejected ?? "");
+
+    appkitStore.account.subscribe((account) => {
+        if (!account) {
+            signingState = false;
+        }
+        updateDisplay();
+    });
+
+    document
+        .getElementById("authenticate")
+        ?.addEventListener("click", async () => {
+            setError("");
+            setSigning(true);
+            try {
+                const address = appkitStore.account.get();
+                if (!address) {
+                    throw { message: "No wallet connected." };
+                }
+
+                const timestamp = Math.round(Date.now() / 1000); // EPOCH time in seconds
+                const domain = window.location.hostname;
+                const signature = await signMessage(wagmiAdapter.wagmiConfig, {
+                    message: getMessage({
+                        domain,
+                        timestamp,
+                    }),
+                });
+
+                const res = await fetch("/xnode-auth/api/login", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        user: toXnodeAddress({
+                            address,
+                        }),
+                        signature,
+                        timestamp: timestamp.toString(),
+                    }),
+                });
+
+                if (res.status === 200) {
+                    window.location.href = redirect;
+                } else {
+                    const body = await res.json();
+                    throw body.error;
+                }
+            } catch (e: any) {
+                console.error(e);
+                setError(
+                    "shortMessage" in e
+                        ? e.shortMessage
+                        : e.message ?? "An unknown error occurred."
+                );
+            } finally {
+                setSigning(false);
+            }
+        });
+</script>
+<script>
+    import sdk from "@farcaster/miniapp-sdk";
+    sdk.actions.ready();
+</script>

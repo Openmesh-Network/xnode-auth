@@ -8,11 +8,10 @@ In domain NGINX [auth_request](https://nginx.org/en/docs/http/ngx_http_auth_requ
 nix run
 ```
 
-## Commands (in nextjs-app)
+## Commands (in astro-app)
 
 ```
 npm i
 npm run dev
 npm run build
-npm run start
 ```
