@@ -51,20 +51,18 @@ import Connect from "../components/Connect.astro";
     >
 </div>
 <script>
-    import { wagmiAdapter } from "../scripts/appkit";
-    import { getMessage } from "../lib/message";
-    import { toXnodeAddress } from "../lib/xnode-address";
-    import { appkitStore } from "../store/appkit";
-    import { signMessage } from "@wagmi/core";
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirect = urlParams.get("redirect") ?? window.location.origin;
+    const rejected = urlParams.get("rejected");
 
-    function setRedirect(redirect: string) {
+    export function setRedirect(redirect: string) {
         const node = document.getElementById("redirect");
         if (node) {
             node.textContent = redirect;
         }
     }
 
-    function setError(error: string) {
+    export function setError(error: string) {
         const node = document.getElementById("error");
         if (node) {
             node.style.display = error ? "flex" : "none";
@@ -72,12 +70,10 @@ import Connect from "../components/Connect.astro";
         }
     }
 
-    let signingState = false;
-    function setSigning(signing: boolean) {
-        signingState = signing;
-        updateDisplay();
-    }
+    setRedirect(redirect);
+    setError(rejected ?? "");
 
+    const { appkitStore } = await import("../store/appkit");
     function updateDisplay() {
         // Signing indicator
         {
@@ -98,13 +94,11 @@ import Connect from "../components/Connect.astro";
         }
     }
 
-    const urlParams = new URLSearchParams(window.location.search);
-
-    const redirect = urlParams.get("redirect") ?? window.location.origin;
-    setRedirect(redirect);
-
-    const rejected = urlParams.get("rejected");
-    setError(rejected ?? "");
+    let signingState = false;
+    function setSigning(signing: boolean) {
+        signingState = signing;
+        updateDisplay();
+    }
 
     appkitStore.account.subscribe((account) => {
         if (!account) {
@@ -113,6 +107,10 @@ import Connect from "../components/Connect.astro";
         updateDisplay();
     });
 
+    const { wagmiAdapter } = await import("../scripts/wagmi");
+    const { getMessage } = await import("../lib/message");
+    const { toXnodeAddress } = await import("../lib/xnode-address");
+    const { signMessage } = await import("@wagmi/core");
     document
         .getElementById("authenticate")
         ?.addEventListener("click", async () => {
@@ -164,8 +162,7 @@ import Connect from "../components/Connect.astro";
                 setSigning(false);
             }
         });
-</script>
-<script>
-    import sdk from "@farcaster/miniapp-sdk";
+
+    const { sdk } = await import("@farcaster/miniapp-sdk");
     sdk.actions.ready();
 </script>

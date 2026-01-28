@@ -23,6 +23,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
+      path: "/",
     } as const;
     cookies.set("xnode_auth_user", user, cookieOptions);
     if (user?.startsWith("eth:")) {

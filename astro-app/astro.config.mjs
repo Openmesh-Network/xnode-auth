@@ -9,6 +9,10 @@ import node from "@astrojs/node";
 export default defineConfig({
   base: "/xnode-auth",
 
+  build: {
+    client: "./xnode-auth",
+  },
+
   vite: {
     plugins: [tailwindcss()],
     ssr: {

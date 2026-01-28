@@ -332,7 +332,16 @@ in
           ))
           {
             "${cfg.nginxConfig.subpath}" = {
-              proxyPass = "http://127.0.0.1:${builtins.toString cfg.port}";
+              root = "${xnode-auth}/share";
+            };
+            "${cfg.nginxConfig.subpath}/_astro" = {
+              root = "${xnode-auth}/share";
+              extraConfig = ''
+                add_header Cache-Control "public, max-age=31536000, immutable";
+              '';
+            };
+            "${cfg.nginxConfig.subpath}/api" = {
+              proxyPass = "http://127.0.0.1:${builtins.toString cfg.port}${cfg.nginxConfig.subpath}/api";
               extraConfig = ''
                 proxy_set_header Host $server_name;
               '';
