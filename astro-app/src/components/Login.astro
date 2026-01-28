@@ -100,11 +100,19 @@ import Connect from "../components/Connect.astro";
         updateDisplay();
     }
 
+    let walletChanges = 0;
     appkitStore.account.subscribe((account) => {
         if (!account) {
             signingState = false;
         }
+
         updateDisplay();
+
+        if (walletChanges > 1) {
+            setError("");
+        }
+
+        walletChanges++;
     });
 
     const { wagmiAdapter } = await import("../scripts/wagmi");

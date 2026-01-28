@@ -17,12 +17,12 @@ export const GET: APIRoute = async ({ request, cookies }) => {
   try {
     const domain = request.headers.get("Host");
     if (!domain) {
-      throw new Error();
+      throw new Error("Could not determine domain.");
     }
 
     const path = request.headers.get("Path");
     if (!path) {
-      throw new Error();
+      throw new Error("Could not determine domain.");
     }
 
     const ip = request.headers.get("X-Forwarded-For");
@@ -33,11 +33,11 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       const timestamp = cookies.get("xnode_auth_timestamp")?.value;
 
       if (!isHex(signature)) {
-        throw new Error();
+        throw new Error(`Signature ${signature} is not valid hex.`);
       }
       if (!timestamp || isNaN(Number(timestamp))) {
         // add checks if timestamp in the future or too far in the past
-        throw new Error();
+        throw new Error(`Timestamp ${timestamp} is not a valid number.`);
       }
 
       const validSignature = await verifyXnodeUserEthAddress({
@@ -47,22 +47,28 @@ export const GET: APIRoute = async ({ request, cookies }) => {
         signature,
       });
       if (!validSignature) {
-        requestedUser = undefined;
+        throw new Error(
+          `Invalid signature ${signature} (domain ${domain}, timestamp ${timestamp}) for ${requestedUser}`
+        );
       }
     } else {
       requestedUser = undefined;
     }
 
+    const users = ([] as string[])
+      .concat(ip ? [`ip:${ip}`] : [])
+      .concat(requestedUser ? [requestedUser] : []);
     const user = await hasAccess({
-      users: ([] as string[])
-        .concat(ip ? [`ip:${ip}`] : [])
-        .concat(requestedUser ? [requestedUser] : []),
+      users,
       domain,
       path,
     });
 
     if (user === undefined) {
-      throw new Error();
+      // No requested user means that no login attempt has been made
+      throw new Error(
+        requestedUser === undefined ? "" : `Access denied for ${requestedUser}`
+      );
     }
 
     return new Response(null, {
@@ -72,7 +78,10 @@ export const GET: APIRoute = async ({ request, cookies }) => {
   } catch (err: any) {
     return new Response(null, {
       status: 401,
-      headers: corsHeaders(request.headers),
+      headers: {
+        "Xnode-Auth-Deny-Reason": err.message,
+        ...corsHeaders(request.headers),
+      },
     });
   }
 };

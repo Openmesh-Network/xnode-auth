@@ -324,6 +324,7 @@ in
                 extraConfig = ''
                   auth_request /xnode-auth/api/validate;
                   auth_request_set $auth_resp_xnode_auth_user $upstream_http_xnode_auth_user;
+                  auth_request_set $auth_resp_xnode_auth_deny_reason $upstream_http_xnode_auth_deny_reason;
                   proxy_set_header Xnode-Auth-User $auth_resp_xnode_auth_user;
                   error_page 401 = @login;
                 '';
@@ -366,7 +367,7 @@ in
               '';
             };
             "@login" = {
-              return = "302 $scheme://$host${cfg.nginxConfig.subpath}?redirect=$scheme://$host$request_uri";
+              return = "302 $scheme://$host${cfg.nginxConfig.subpath}?redirect=$scheme://$host$request_uri&rejected=$auth_resp_xnode_auth_deny_reason";
             };
           }
         ];
