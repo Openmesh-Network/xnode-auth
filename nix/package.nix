@@ -1,7 +1,7 @@
 { pkgs }:
 pkgs.buildNpmPackage {
   pname = "xnode-auth";
-  version = "1.2.0";
+  version = "2.0.0";
   src = ../astro-app;
 
   npmDeps = pkgs.importNpmLock {

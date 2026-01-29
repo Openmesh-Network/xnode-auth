@@ -15,11 +15,20 @@ export async function hasAccess({
     const memoryUser = users.find((user) =>
       Object.keys(memory[domain]).some(
         (userReg) =>
+          // user matches this userReg
           (userReg.startsWith("regex:")
             ? new RegExp(userReg.replace("regex:", "")).test(user)
             : userReg === user) &&
-          new RegExp(memory[domain][userReg].paths).test(path)
-      )
+          // role of user exists
+          Object.hasOwn(
+            memory[domain].roles,
+            memory[domain].users[userReg].role,
+          ) &&
+          // role has access to path
+          new RegExp(
+            memory[domain].roles[memory[domain].users[userReg].role].paths,
+          ).test(path),
+      ),
     );
 
     if (memoryUser !== undefined) {
@@ -40,27 +49,37 @@ export async function hasAccess({
   }[];
 
   for (const externalSource of externalSources.filter((externalSource) =>
-    new RegExp(externalSource.restrictions.domains).test(domain)
+    new RegExp(externalSource.restrictions.domains).test(domain),
   )) {
     const source = await getSource({ id: `external:${externalSource.source}` });
     if (source[domain] !== undefined) {
       const externalUser = users.find((user) =>
         Object.keys(source[domain]).some(
           (userReg) =>
+            // user matches this userReg
             (userReg.startsWith("regex:")
               ? new RegExp(userReg.replace("regex:", "")).test(user)
               : userReg === user) &&
-            new RegExp(source[domain][userReg].paths).test(path) &&
+            // role of user exists
+            Object.hasOwn(
+              memory[domain].roles,
+              memory[domain].users[userReg].role,
+            ) &&
+            // role has access to path
+            new RegExp(
+              source[domain].roles[source[domain].users[userReg].role].paths,
+            ).test(path) &&
+            // there is no restriction applied to this domain that rejects this user or path
             !externalSource.restrictions.domainSpecific
               .filter((restriction) =>
-                new RegExp(restriction.domains).test(domain)
+                new RegExp(restriction.domains).test(domain),
               )
               .some(
                 (restriction) =>
                   !new RegExp(restriction.users).test(user) ||
-                  !new RegExp(restriction.paths).test(path)
-              )
-        )
+                  !new RegExp(restriction.paths).test(path),
+              ),
+        ),
       );
 
       if (externalUser !== undefined) {

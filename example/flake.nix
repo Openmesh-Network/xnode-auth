@@ -35,15 +35,22 @@
           { lib, ... }:
           {
             # START USER CONFIG
-            services.xnode-auth.domains."xnode-auth-demo".accessList."regex:^eth:.*$" = {
-              paths = "^\/private(?:\\?.*)?$";
+            services.xnode-auth.domains."xnode-auth-demo" = {
+              paths = [
+                "/private"
+                "/admin"
+              ];
+              accessList = {
+                roles = {
+                  "user".paths = "^\/private(?:\\?.*)?$";
+                  "admin" = { };
+                };
+                users = {
+                  "regex:^eth:.*$".role = "user";
+                  "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3".role = "admin";
+                };
+              };
             };
-            services.xnode-auth.domains."xnode-auth-demo".accessList."eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" =
-              { };
-            services.xnode-auth.domains."xnode-auth-demo".paths = [
-              "/private"
-              "/admin"
-            ];
             services.xnode-auth.externalSources = [
               {
                 # echo -n '{ }' | sudo tee /xnode-auth.json && chown xnode-auth /xnode-auth.json

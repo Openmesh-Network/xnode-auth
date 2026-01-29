@@ -1,7 +1,10 @@
 import { readFile } from "fs/promises";
 
 export interface Data {
-  [domain: string]: { [user: string]: { paths: string } };
+  [domain: string]: {
+    users: { [user: string]: { role: string } };
+    roles: { [role: string]: { paths: string } };
+  };
 }
 const cache = {} as {
   [id: string]: { data: Data; cachedAt: Date } | undefined;

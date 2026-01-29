@@ -35,31 +35,61 @@ in
         type = lib.types.attrsOf (
           lib.types.submodule {
             options = {
-              accessList = lib.mkOption {
-                type = lib.types.attrsOf (
-                  lib.types.submodule {
-                    options = {
-                      paths = lib.mkOption {
-                        type = lib.types.str;
-                        default = ".*";
-                        example = "^(?:\/admin|\/secret)(?:\?.*)?$";
-                        description = ''
-                          Regex of paths to protect with the accessList authentication.
-                        '';
+              accessList = {
+                users = lib.mkOption {
+                  type = lib.types.attrsOf (
+                    lib.types.submodule {
+                      options = {
+                        role = lib.mkOption {
+                          type = lib.types.str;
+                          example = "admin";
+                          description = ''
+                            Role on this domain to grant to this user.
+                          '';
+                        };
                       };
+                    }
+                  );
+                  default = { };
+                  example = {
+                    "regex:^eth:*.$" = {
+                      role = "user";
                     };
-                  }
-                );
-                default = { };
-                example = {
-                  "regex:^eth:*.$" = {
-                    paths = "^\/user\/profile(?:\?.*)?$";
+                    "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = {
+                      role = "admin";
+                    };
                   };
-                  "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = { };
+                  description = ''
+                    User to role mapping.
+                  '';
                 };
-                description = ''
-                  Users to which access is granted.
-                '';
+
+                roles = lib.mkOption {
+                  type = lib.types.attrsOf (
+                    lib.types.submodule {
+                      options = {
+                        paths = lib.mkOption {
+                          type = lib.types.str;
+                          default = ".*";
+                          example = "^(?:\/admin|\/secret)(?:\?.*)?$";
+                          description = ''
+                            Regex of paths this role has access to.
+                          '';
+                        };
+                      };
+                    }
+                  );
+                  default = { };
+                  example = {
+                    "user" = {
+                      paths = "^\/user\/profile(?:\?.*)?$";
+                    };
+                    "admin" = { };
+                  };
+                  description = ''
+                    Role to allowed paths mapping.
+                  '';
+                };
               };
 
               paths = lib.mkOption {
@@ -248,6 +278,15 @@ in
             The subpath used for xnode-auth endpoints.
           '';
         };
+
+        loginPage = lib.mkOption {
+          type = lib.types.str;
+          default = "/xnode-auth";
+          example = "/xnode-monetization";
+          description = ''
+            The subpath to redirect unauthenticated users to.
+          '';
+        };
       };
     };
   };
@@ -367,7 +406,7 @@ in
               '';
             };
             "@login" = {
-              return = "302 $scheme://$host${cfg.nginxConfig.subpath}?redirect=$scheme://$host$request_uri&rejected=$auth_resp_xnode_auth_deny_reason";
+              return = "302 $scheme://$host${cfg.nginxConfig.loginPage}?redirect=$scheme://$host$request_uri&rejected=$auth_resp_xnode_auth_deny_reason";
             };
           }
         ];
