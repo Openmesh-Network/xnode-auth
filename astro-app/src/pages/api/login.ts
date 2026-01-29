@@ -1,4 +1,4 @@
-import type { APIRoute } from "astro";
+import type { APIRoute, AstroCookieSetOptions } from "astro";
 import { isHex } from "viem";
 import { corsHeaders } from "../../lib/cors";
 
@@ -22,9 +22,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     const cookieOptions = {
       httpOnly: true,
       secure: true,
-      sameSite: "none",
+      sameSite: "strict",
       path: "/",
-    } as const;
+    } as AstroCookieSetOptions;
     cookies.set("xnode_auth_user", user, cookieOptions);
     if (user?.startsWith("eth:")) {
       const signature = body.signature;

@@ -27,14 +27,21 @@ export const GET: APIRoute = async ({ request, cookies }) => {
 
     const ip = request.headers.get("X-Forwarded-For");
 
-    let requestedUser = cookies.get("xnode_auth_user")?.value;
+    let requestedUser =
+      cookies.get("xnode_auth_user")?.value ??
+      request.headers.get("Xnode-Auth-User") ??
+      undefined;
     if (requestedUser?.startsWith("eth:")) {
-      const signature = cookies.get("xnode_auth_signature")?.value;
-      const timestamp = cookies.get("xnode_auth_timestamp")?.value;
-
+      const signature =
+        cookies.get("xnode_auth_signature")?.value ??
+        request.headers.get("Xnode-Auth-Signature");
       if (!isHex(signature)) {
         throw new Error(`Signature ${signature} is not valid hex.`);
       }
+
+      const timestamp =
+        cookies.get("xnode_auth_timestamp")?.value ??
+        request.headers.get("Xnode-Auth-Timestamp");
       if (!timestamp || isNaN(Number(timestamp))) {
         // add checks if timestamp in the future or too far in the past
         throw new Error(`Timestamp ${timestamp} is not a valid number.`);
