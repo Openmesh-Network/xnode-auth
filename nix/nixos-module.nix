@@ -103,6 +103,15 @@ in
                   Paths to protect with the accessList authentication.
                 '';
               };
+
+              loginPage = lib.mkOption {
+                type = lib.types.str;
+                default = cfg.nginxConfig.subpath;
+                example = "/xnode-monetization";
+                description = ''
+                  The subpath to redirect unauthenticated users to.
+                '';
+              };
             };
           }
         );
@@ -278,15 +287,6 @@ in
             The subpath used for xnode-auth endpoints.
           '';
         };
-
-        loginPage = lib.mkOption {
-          type = lib.types.str;
-          default = "/xnode-auth";
-          example = "/xnode-monetization";
-          description = ''
-            The subpath to redirect unauthenticated users to.
-          '';
-        };
       };
     };
   };
@@ -406,7 +406,7 @@ in
               '';
             };
             "@login" = {
-              return = "302 $scheme://$host${cfg.nginxConfig.loginPage}?redirect=$scheme://$host$request_uri&rejected=$auth_resp_xnode_auth_deny_reason";
+              return = "302 $scheme://$host${access.loginPage}?redirect=$scheme://$host$request_uri&rejected=$auth_resp_xnode_auth_deny_reason";
             };
           }
         ];
