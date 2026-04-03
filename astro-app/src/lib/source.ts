@@ -1,11 +1,31 @@
 import { readFile } from "fs/promises";
 
+export interface Source {
+  data: Data;
+  restrictions?: Restrictions;
+}
+
 export interface Data {
   [domain: string]: {
-    users: { [user: string]: { role: string } };
-    roles: { [role: string]: { paths: string } };
+    users?: { [user: string]: { role: string } };
+    roles?: { [role: string]: { paths: string } };
+    config?: {
+      ethereum?: {
+        rpc?: string;
+        projectid?: string;
+      };
+      password?: {
+        user?: { [name: string]: { password: string } };
+      };
+    };
   };
 }
+
+export interface Restrictions {
+  domains?: string;
+  domainSpecific?: { domains: string; users: string; paths: string }[];
+}
+
 const cache = {} as {
   [id: string]: { data: Data; cachedAt: Date } | undefined;
 };

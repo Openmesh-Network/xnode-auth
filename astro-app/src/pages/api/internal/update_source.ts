@@ -6,9 +6,12 @@ export const prerender = false;
 export const POST: APIRoute = async ({ request }) => {
   const data = await request.json();
   if (!data.id) {
-    return new Response(null, {
-      status: 400,
-    });
+    return Response.json(
+      {
+        error: "Id is required.",
+      },
+      { status: 400 },
+    );
   }
 
   await updateSource({ id: `external:${data.id}` });

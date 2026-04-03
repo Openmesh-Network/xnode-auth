@@ -1,9 +1,10 @@
 import { mainnet } from "@reown/appkit/networks";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
-import { config } from "../lib/config";
 import farcasterMiniApp from "@farcaster/miniapp-wagmi-connector";
 
-export const projectId = config.eth.projectid;
+export const projectId = await fetch("/xnode-auth/api/ethereum/projectid")
+  .then((res) => res.json())
+  .then((data) => data.projectid);
 
 export const networks = [mainnet];
 

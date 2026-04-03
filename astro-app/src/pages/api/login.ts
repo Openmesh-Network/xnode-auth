@@ -26,7 +26,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       path: "/",
     } as AstroCookieSetOptions;
     cookies.set("xnode_auth_user", user, cookieOptions);
-    if (user?.startsWith("eth:")) {
+    if (user?.startsWith("ethereum:") || user?.startsWith("password:")) {
       const signature = body.signature;
       const timestamp = body.timestamp;
 
@@ -52,7 +52,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   } catch (err: any) {
     return Response.json(
       { error: err?.message ?? err },
-      { status: 500, headers: corsHeaders(request.headers) }
+      { status: 500, headers: corsHeaders(request.headers) },
     );
   }
 };

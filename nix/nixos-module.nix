@@ -52,10 +52,10 @@ in
                   );
                   default = { };
                   example = {
-                    "regex:^eth:*.$" = {
+                    "regex:^ethereum:*.$" = {
                       role = "user";
                     };
-                    "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = {
+                    "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = {
                       role = "admin";
                     };
                   };
@@ -112,6 +112,54 @@ in
                   The subpath to redirect unauthenticated users to.
                 '';
               };
+
+              config = {
+                ethereum = {
+                  rpc = lib.mkOption {
+                    type = lib.types.str;
+                    default = "";
+                    example = "https://mainnet.base.org";
+                    description = ''
+                      Use an RPC to validate smart account signatures.
+                    '';
+                  };
+
+                  projectid = lib.mkOption {
+                    type = lib.types.str;
+                    default = "6afdeb3a0496b33061a69538819a9a7e";
+                    example = "6afdeb3a0496b33061a69538819a9a7e";
+                    description = ''
+                      Use a different reown project id.
+                    '';
+                  };
+                };
+                password = {
+                  user = lib.mkOption {
+                    type = lib.types.attrsOf (
+                      lib.types.submodule {
+                        options = {
+                          password = lib.mkOption {
+                            type = lib.types.str;
+                            example = "hunter12";
+                            description = ''
+                              Password of this user.
+                            '';
+                          };
+                        };
+                      }
+                    );
+                    default = { };
+                    example = {
+                      "plopmenz" = {
+                        password = "hunter12";
+                      };
+                    };
+                    description = ''
+                      Set the users which can be logged into with password authentication.
+                    '';
+                  };
+                };
+              };
             };
           }
         );
@@ -119,15 +167,15 @@ in
         example = {
           "example.com" = {
             accessList = {
-              "regex:^eth:*.$" = { };
+              "regex:^ethereum:*.$" = { };
             };
           };
           "admin.plopmenz.com" = {
             accessList = {
-              "eth:0000000000000000000000000000000000000000" = {
+              "ethereum:0000000000000000000000000000000000000000" = {
                 paths = "^\/secret-admin(?:\?.*)?$";
               };
-              "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = {
+              "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = {
                 paths = "^\/admin(?:\?.*)?$";
               };
             };
@@ -180,7 +228,7 @@ in
                         users = lib.mkOption {
                           type = lib.types.str;
                           default = "^.*$";
-                          example = "^(eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3|eth:2309762aaca0a8f689463a42c0a6a84be3a7ea51)$";
+                          example = "^(ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3|ethereum:2309762aaca0a8f689463a42c0a6a84be3a7ea51)$";
                           description = ''
                             Regex that defines allowed users.
                           '';
@@ -205,9 +253,9 @@ in
                       paths = "^\/private(?:\\?.*)?$";
                     }
                     {
-                      # Only allow this source to give access to eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3 for any subdomain of plopmenz.com.
+                      # Only allow this source to give access to ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3 for any subdomain of plopmenz.com.
                       domains = "^.*\.plopmenz\.com$";
-                      users = "^eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3$";
+                      users = "^ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3$";
                     }
                   ];
                   description = ''
@@ -229,14 +277,14 @@ in
           }
           {
             # Give remote file https://core.openmesh.network/xnode-auth.json full access over all openmesh.network subdomains
-            # Except on xnode.openmesh.network, where it is only allowed to grant access to eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3
+            # Except on xnode.openmesh.network, where it is only allowed to grant access to ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3
             source = "https:core.openmesh.network/xnode-auth.json";
             restrictions = {
               domains = "^.*\.openmesh\.network$";
               domainSpecific = [
                 {
                   domains = "^xnode\.openmesh\.network$";
-                  users = "^eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3$";
+                  users = "^ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3$";
                 }
               ];
             };
@@ -245,28 +293,6 @@ in
         description = ''
           List of external sources that define domain configurations. Each source should be properly restricted for optimal security.
         '';
-      };
-
-      config = {
-        eth = {
-          rpc = lib.mkOption {
-            type = lib.types.str;
-            default = "";
-            example = "https://mainnet.base.org";
-            description = ''
-              Use an RPC to validate smart account signatures.
-            '';
-          };
-
-          projectid = lib.mkOption {
-            type = lib.types.str;
-            default = "6afdeb3a0496b33061a69538819a9a7e";
-            example = "6afdeb3a0496b33061a69538819a9a7e";
-            description = ''
-              Use a different reown project id.
-            '';
-          };
-        };
       };
 
       nginxConfig = {
@@ -320,12 +346,11 @@ in
                           domain
                         else
                           config.services.nginx.virtualHosts.${domain}.serverName
-                      ) access.accessList)
+                      ) access)
                     ]
                   ) [ ] cfg.domains
                 )
               );
-              XNODEAUTH_CONFIG = builtins.toJSON cfg.config;
             };
             serviceConfig = {
               ExecStart = "${lib.getExe xnode-auth}";
@@ -341,6 +366,7 @@ in
         }" =
           {
             description = "Update Xnode Auth external source ${externalSource.source}.";
+            restartIfChanged = false;
             serviceConfig = {
               User = "xnode-auth";
               Group = "xnode-auth";

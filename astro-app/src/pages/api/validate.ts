@@ -1,8 +1,12 @@
 import type { APIRoute } from "astro";
-import { hasAccess } from "../../lib/access";
-import { verifyXnodeUserEthAddress } from "../../lib/xnode-address";
+import { getSources, hasAccess } from "../../lib/access";
+import {
+  verifyXnodeEthereumUser,
+  verifyXnodePasswordUser,
+} from "../../lib/verify";
 import { isHex } from "viem";
 import { corsHeaders } from "../../lib/cors";
+import { getMessage } from "../../lib/message";
 
 export const prerender = false;
 
@@ -30,8 +34,10 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     let requestedUser =
       cookies.get("xnode_auth_user")?.value ??
       request.headers.get("Xnode-Auth-User") ??
-      undefined;
-    if (requestedUser?.startsWith("eth:")) {
+      `ip:${ip}`;
+    let authenticatedUser = undefined;
+
+    const getSignatureAndTimestamp = () => {
       const signature =
         cookies.get("xnode_auth_signature")?.value ??
         request.headers.get("Xnode-Auth-Signature");
@@ -47,40 +53,81 @@ export const GET: APIRoute = async ({ request, cookies }) => {
         throw new Error(`Timestamp ${timestamp} is not a valid number.`);
       }
 
-      const validSignature = await verifyXnodeUserEthAddress({
-        user: requestedUser,
-        domain,
-        timestamp,
-        signature,
-      });
-      if (!validSignature) {
-        throw new Error(
-          `Invalid signature ${signature} (domain ${domain}, timestamp ${timestamp}) for ${requestedUser}`
-        );
+      return { signature, timestamp: Number(timestamp) };
+    };
+
+    for await (let source of getSources()) {
+      // If restrictions apply to this domain and this domain is restricted
+      if (
+        source.restrictions?.domains &&
+        !new RegExp(source.restrictions.domains).test(domain)
+      ) {
+        continue;
       }
-    } else {
-      requestedUser = undefined;
+
+      let data = source.data[domain];
+      if (!data) {
+        // No data for this domain defined
+        continue;
+      }
+
+      if (requestedUser?.startsWith("ethereum:")) {
+        const { signature, timestamp } = getSignatureAndTimestamp();
+        const message = getMessage({ domain, timestamp });
+
+        const validSignature = await verifyXnodeEthereumUser({
+          user: requestedUser,
+          message,
+          signature,
+          data,
+        });
+        if (!validSignature) {
+          throw new Error(
+            `Invalid signature ${signature} (domain ${domain}, timestamp ${timestamp}) for ${requestedUser}`,
+          );
+        }
+      } else if (requestedUser?.startsWith("password:")) {
+        const { signature, timestamp } = getSignatureAndTimestamp();
+        const message = getMessage({ domain, timestamp });
+
+        const validSignature = await verifyXnodePasswordUser({
+          user: requestedUser,
+          message,
+          signature,
+          data,
+        });
+        if (!validSignature) {
+          throw new Error(
+            `Invalid signature ${signature} (domain ${domain}, timestamp ${timestamp}) for ${requestedUser}`,
+          );
+        }
+      }
+
+      const user = await hasAccess({
+        users: [requestedUser],
+        domain,
+        path,
+        source,
+      });
+      if (user) {
+        authenticatedUser = user;
+        break;
+      }
     }
 
-    const users = ([] as string[])
-      .concat(ip ? [`ip:${ip}`] : [])
-      .concat(requestedUser ? [requestedUser] : []);
-    const user = await hasAccess({
-      users,
-      domain,
-      path,
-    });
-
-    if (user === undefined) {
+    if (authenticatedUser === undefined) {
       // No requested user means that no login attempt has been made
       throw new Error(
-        requestedUser === undefined ? "" : `Access denied for ${requestedUser}`
+        requestedUser === undefined ? "" : `Access denied for ${requestedUser}`,
       );
     }
 
     return new Response(null, {
       status: 200,
-      headers: { "Xnode-Auth-User": user, ...corsHeaders(request.headers) },
+      headers: {
+        "Xnode-Auth-User": authenticatedUser,
+        ...corsHeaders(request.headers),
+      },
     });
   } catch (err: any) {
     return new Response(null, {

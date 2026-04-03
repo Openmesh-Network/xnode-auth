@@ -46,24 +46,24 @@
                   "admin" = { };
                 };
                 users = {
-                  "regex:^eth:.*$".role = "user";
-                  "eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3".role = "admin";
+                  "regex:^ethereum:.*$".role = "user";
+                  "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3".role = "admin";
                 };
               };
             };
             services.xnode-auth.externalSources = [
               {
                 # echo -n '{ }' | sudo tee /xnode-auth.json && chown xnode-auth /xnode-auth.json
-                # echo -n '{ "xnode-auth.container": { "eth:c9d5278cbb7bcf938f4a9098f4a7abc5da933ba1": {} } }' | sudo tee /xnode-auth.json && chown xnode-auth /xnode-auth.json
+                # echo -n '{ "xnode-auth.container": { "ethereum:c9d5278cbb7bcf938f4a9098f4a7abc5da933ba1": {} } }' | sudo tee /xnode-auth.json && chown xnode-auth /xnode-auth.json
                 # systemctl restart xnode-auth-source-update-path:-xnode\x2dauth.json
                 source = "path:/xnode-auth.json";
 
                 restrictions.domains = "^xnode-auth.container$";
 
-                # Prevent access of eth:c9d5278cbb7bcf938f4a9098f4a7abc5da933ba1 even if allowed by /xnode-auth.json
+                # Prevent access of ethereum:c9d5278cbb7bcf938f4a9098f4a7abc5da933ba1 even if allowed by /xnode-auth.json
                 # restrictions.domainSpecific = [
                 #   {
-                #     users = "^eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3$";
+                #     users = "^ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3$";
                 #   }
                 # ];
 
