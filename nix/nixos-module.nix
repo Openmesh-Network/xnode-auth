@@ -40,11 +40,15 @@ in
                   type = lib.types.attrsOf (
                     lib.types.submodule {
                       options = {
-                        role = lib.mkOption {
-                          type = lib.types.str;
-                          example = "admin";
+                        roles = lib.mkOption {
+                          type = lib.types.listOf lib.types.str;
+                          default = [ ];
+                          example = [
+                            "sysadmin"
+                            "moderator"
+                          ];
                           description = ''
-                            Role on this domain to grant to this user.
+                            Roles on this domain to grant to this user.
                           '';
                         };
                       };
@@ -53,14 +57,14 @@ in
                   default = { };
                   example = {
                     "regex:^ethereum:*.$" = {
-                      role = "user";
+                      roles = [ "user" ];
                     };
                     "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = {
-                      role = "admin";
+                      roles = [ "admin" ];
                     };
                   };
                   description = ''
-                    User to role mapping.
+                    Users to roles mapping.
                   '';
                 };
 
@@ -167,16 +171,36 @@ in
         example = {
           "example.com" = {
             accessList = {
-              "regex:^ethereum:*.$" = { };
+              users = {
+                "regex:^ethereum:*.$" = {
+                  roles = [ "user" ];
+                };
+              };
+              roles = {
+                "user" = { };
+              };
             };
           };
           "admin.plopmenz.com" = {
             accessList = {
-              "ethereum:0000000000000000000000000000000000000000" = {
-                paths = "^\/secret-admin(?:\?.*)?$";
+              users = {
+                "ethereum:0000000000000000000000000000000000000000" = {
+                  roles = [ "secret-admin" ];
+                };
+                "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = {
+                  roles = [
+                    "admin"
+                    "secret-admin"
+                  ];
+                };
               };
-              "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = {
-                paths = "^\/admin(?:\?.*)?$";
+              roles = {
+                "secret-admin" = {
+                  paths = "^\/secret-admin(?:\?.*)?$";
+                };
+                "admin" = {
+                  paths = "^\/admin(?:\?.*)?$";
+                };
               };
             };
             paths = [

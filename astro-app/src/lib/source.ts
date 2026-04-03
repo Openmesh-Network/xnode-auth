@@ -7,7 +7,7 @@ export interface Source {
 
 export interface Data {
   [domain: string]: {
-    users?: { [user: string]: { role: string } };
+    users?: { [user: string]: { roles: string[] } };
     roles?: { [role: string]: { paths: string } };
     config?: {
       ethereum?: {
