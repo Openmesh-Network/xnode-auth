@@ -11,7 +11,9 @@ in
 {
   options = {
     services.xnode-auth = {
-      enable = lib.mkEnableOption "Enable Xnode Auth";
+      enable = lib.mkEnableOption "Enable Xnode Auth" // {
+        default = cfg.domains != { };
+      };
 
       hostname = lib.mkOption {
         type = lib.types.str;
