@@ -407,6 +407,10 @@ in
 
     services.nginx.virtualHosts = lib.mkIf cfg.nginxConfig.enable (
       lib.attrsets.mapAttrs (domain: access: {
+        extraConfig = ''
+          # Breaks redirects when nginx is running on non-default ports, but proxied from default port
+          port_in_redirect off;
+        '';
         locations = lib.mkMerge [
           (builtins.listToAttrs (
             builtins.map (
@@ -458,7 +462,7 @@ in
               '';
             };
             "@login" = {
-              return = "302 $scheme://$host${access.loginPage}?redirect=$scheme://$host$request_uri&rejected=$auth_resp_xnode_auth_deny_reason";
+              return = "302 $scheme://$host${access.loginPage}/?redirect=$scheme://$host$request_uri&rejected=$auth_resp_xnode_auth_deny_reason";
             };
           }
         ];
