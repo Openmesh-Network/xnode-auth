@@ -20,6 +20,7 @@
       module = {
         network = false;
         storage = false;
+        defaultEnable = { cfg, ... }: cfg.domains != { };
         options =
           {
             cfg,
@@ -29,22 +30,6 @@
             ...
           }:
           {
-            autoEnable = {
-              option = {
-                type = lib.types.bool;
-                default = true;
-                example = false;
-                description = ''
-                  Ensure this unit always keeps running.
-                '';
-              };
-              does =
-                { value, config, ... }:
-                lib.mkIf value (config {
-                  enable = lib.mkDefault (cfg.domains != { });
-                });
-            };
-
             host = {
               option = {
                 type = lib.types.str;
@@ -66,7 +51,7 @@
                   The port the app should bind to.
                 '';
               };
-              does = { value, service, ... }: service { environment.PORT = value; };
+              does = { value, service, ... }: service { environment.PORT = builtins.toString value; };
             };
 
             domains = {
