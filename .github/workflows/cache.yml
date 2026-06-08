@@ -3,7 +3,7 @@ name: Cache
 on:
   push:
     branches:
-      - cache
+      - "v*"
 
 jobs:
   build-and-upload:
