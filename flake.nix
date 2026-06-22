@@ -417,27 +417,27 @@
                         ) access.paths
                       ))
                       {
-                        "${cfg.nginxConfig.subpath}" = {
+                        "^~ ${cfg.nginxConfig.subpath}" = {
                           root = "${cfg.package}/share/dist";
                         };
-                        "${cfg.nginxConfig.subpath}/_astro" = {
+                        "^~ ${cfg.nginxConfig.subpath}/_astro" = {
                           root = "${cfg.package}/share/dist";
                           extraConfig = ''
                             add_header Cache-Control "public, max-age=31536000, immutable";
                           '';
                         };
-                        "${cfg.nginxConfig.subpath}/api" = {
+                        "^~ ${cfg.nginxConfig.subpath}/api" = {
                           proxyPass = "http://127.0.0.1:${builtins.toString cfg.port}${cfg.nginxConfig.subpath}/api";
                           extraConfig = ''
                             proxy_set_header Host $server_name;
                           '';
                         };
-                        "${cfg.nginxConfig.subpath}/api/internal" = {
+                        "^~ ${cfg.nginxConfig.subpath}/api/internal" = {
                           extraConfig = ''
                             return 403;
                           '';
                         };
-                        "${cfg.nginxConfig.subpath}/api/validate" = {
+                        "^~ ${cfg.nginxConfig.subpath}/api/validate" = {
                           proxyPass = "http://127.0.0.1:${builtins.toString cfg.port}${cfg.nginxConfig.subpath}/api/validate";
                           extraConfig = ''
                             proxy_set_header Host $server_name;
