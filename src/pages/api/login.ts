@@ -1,15 +1,7 @@
 import type { APIRoute, AstroCookieSetOptions } from "astro";
 import { isHex } from "viem";
-import { corsHeaders } from "../../lib/cors";
 
 export const prerender = false;
-
-export const OPTIONS: APIRoute = async ({ request }) => {
-  return new Response(null, {
-    status: 204,
-    headers: { Allow: "OPTIONS, POST", ...corsHeaders(request.headers) },
-  });
-};
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   try {
@@ -47,12 +39,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
     return new Response(null, {
       status: 200,
-      headers: corsHeaders(request.headers),
     });
   } catch (err: any) {
-    return Response.json(
-      { error: err?.message ?? err },
-      { status: 500, headers: corsHeaders(request.headers) },
-    );
+    return Response.json({ error: err?.message ?? err }, { status: 500 });
   }
 };

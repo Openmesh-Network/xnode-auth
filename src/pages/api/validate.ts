@@ -5,17 +5,9 @@ import {
   verifyXnodePasswordUser,
 } from "../../lib/verify";
 import { isHex } from "viem";
-import { corsHeaders } from "../../lib/cors";
 import { getMessage } from "../../lib/message";
 
 export const prerender = false;
-
-export const OPTIONS: APIRoute = async ({ request }) => {
-  return new Response(null, {
-    status: 204,
-    headers: { Allow: "OPTIONS, GET", ...corsHeaders(request.headers) },
-  });
-};
 
 export const GET: APIRoute = async ({ request, cookies }) => {
   try {
@@ -126,7 +118,6 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       status: 200,
       headers: {
         "Xnode-Auth-User": authenticatedUser,
-        ...corsHeaders(request.headers),
       },
     });
   } catch (err: any) {
@@ -134,7 +125,6 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       status: 401,
       headers: {
         "Xnode-Auth-Deny-Reason": err.message,
-        ...corsHeaders(request.headers),
       },
     });
   }
