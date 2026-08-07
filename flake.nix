@@ -417,11 +417,11 @@
                         ) access.paths
                       ))
                       {
-                        "^~ ${cfg.nginxConfig.subpath}" = {
-                          root = "${cfg.package}/share/dist";
+                        "^~ ${cfg.nginxConfig.subpath}/" = {
+                          alias = "${cfg.package}/share/dist/client/";
                         };
-                        "^~ ${cfg.nginxConfig.subpath}/_astro" = {
-                          root = "${cfg.package}/share/dist";
+                        "^~ ${cfg.nginxConfig.subpath}/_astro/" = {
+                          alias = "${cfg.package}/share/dist/client/_astro/";
                           extraConfig = ''
                             add_header Cache-Control "public, max-age=31536000, immutable";
                           '';

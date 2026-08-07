@@ -7,10 +7,6 @@ import node from "@astrojs/node";
 export default defineConfig({
   base: "/xnode-auth",
 
-  build: {
-    client: "./xnode-auth",
-  },
-
   vite: {
     ssr: {
       noExternal: true
