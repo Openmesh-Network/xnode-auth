@@ -3,6 +3,8 @@ import { defineConfig } from 'astro/config';
 
 import node from "@astrojs/node";
 
+import tailwindcss from "@tailwindcss/vite";
+
 // https://astro.build/config
 export default defineConfig({
   base: "/xnode-auth",
@@ -11,6 +13,8 @@ export default defineConfig({
     ssr: {
       noExternal: true
     },
+
+    plugins: [tailwindcss()],
   },
 
   adapter: node({
