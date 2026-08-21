@@ -9,15 +9,15 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/node": "^11.1.0",
+    "@astrojs/node": "^11.1.4",
     "@reown/appkit": "^1.8.23",
     "@reown/appkit-adapter-wagmi": "^1.8.23",
     "@tailwindcss/vite": "^4.3.3",
     "@wagmi/core": "^3.6.4",
-    "astro": "^7.2.0",
-    "nanostores": "^1.4.2",
+    "astro": "^7.2.4",
+    "nanostores": "^1.5.1",
     "tailwindcss": "^4.3.3",
-    "viem": "^2.55.11",
+    "viem": "^2.55.19",
     "wagmi": "^3.7.6"
   }
 }

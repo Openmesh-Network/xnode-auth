@@ -1,10 +1,11 @@
 <appkit-button balance="hide"></appkit-button>
 <script>
     const { createAppKit } = await import("@reown/appkit");
-    const { mainnet } = await import("@reown/appkit/networks");
     const { appkitStore } = await import("../store/appkit");
     const { isAddress } = await import("viem");
-    const { projectId, wagmiAdapter } = await import("../scripts/wagmi");
+    const { projectId, networks, wagmiAdapter } = await import(
+        "../scripts/wagmi"
+    );
 
     const metadata = {
         name: "Xnode Auth",
@@ -15,7 +16,7 @@
 
     const modal = createAppKit({
         adapters: [wagmiAdapter],
-        networks: [mainnet],
+        networks,
         metadata,
         projectId,
         defaultAccountTypes: {

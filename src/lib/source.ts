@@ -14,7 +14,10 @@ export interface Data {
     config?: {
       ethereum?: {
         rpc?: string;
+      };
+      appkit?: {
         projectid?: string;
+        networks?: string[];
       };
       password?: {
         user?: { [name: string]: { password: string } };

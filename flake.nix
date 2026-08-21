@@ -151,16 +151,32 @@
                               Use an RPC to validate smart account signatures.
                             '';
                           };
+                        };
 
+                        appkit = {
                           projectid = lib.mkOption {
                             type = lib.types.str;
                             default = "6afdeb3a0496b33061a69538819a9a7e";
                             example = "6afdeb3a0496b33061a69538819a9a7e";
                             description = ''
-                              Use a different reown project id.
+                              Use a different reown appkit project id.
+                            '';
+                          };
+
+                          networks = lib.mkOption {
+                            type = lib.types.listOf lib.types.str;
+                            default = [ "eip155:1" ];
+                            example = [
+                              "eip155:1"
+                              "eip155:8453"
+                              "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+                            ];
+                            description = ''
+                              Use a different reown appkit network selection.
                             '';
                           };
                         };
+
                         password = {
                           user = lib.mkOption {
                             type = lib.types.attrsOf (
