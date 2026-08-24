@@ -14,8 +14,8 @@
     "@reown/appkit-adapter-wagmi": "^1.8.23",
     "@tailwindcss/vite": "^4.3.3",
     "@wagmi/core": "^3.6.4",
-    "astro": "^7.2.4",
-    "nanostores": "^1.5.1",
+    "astro": "^7.2.6",
+    "nanostores": "^1.5.2",
     "tailwindcss": "^4.3.3",
     "viem": "^2.55.19",
     "wagmi": "^3.7.6"

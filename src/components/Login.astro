@@ -115,7 +115,7 @@ import Connect from "../components/Connect.astro";
         walletChanges++;
     });
 
-    const { wagmiAdapter } = await import("../scripts/wagmi");
+    const { wagmiAdapter } = await import("../scripts/appkit");
     const { getMessage } = await import("../lib/message");
     const { toXnodeEthereumUser } = await import("../lib/xnode-user");
     const { signMessage } = await import("@wagmi/core");
@@ -132,7 +132,8 @@ import Connect from "../components/Connect.astro";
 
                 const timestamp = Math.round(Date.now() / 1000); // EPOCH time in seconds
                 const domain = window.location.hostname;
-                const signature = await signMessage(wagmiAdapter.wagmiConfig, {
+                const _wagmiAdapter = await wagmiAdapter();
+                const signature = await signMessage(_wagmiAdapter.wagmiConfig, {
                     message: getMessage({
                         domain,
                         timestamp,
