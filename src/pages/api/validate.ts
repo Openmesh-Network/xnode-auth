@@ -93,6 +93,12 @@ export const GET: APIRoute = async ({ request, cookies }) => {
             `Invalid signature ${signature} (domain ${domain}, timestamp ${timestamp}) for ${requestedUser}`,
           );
         }
+      } else if (requestedUser?.startsWith("ip:")) {
+        if (requestedUser !== `ip:${ip}`) {
+          throw new Error(`Invalid ip ${ip} for ${requestedUser}`);
+        }
+      } else {
+        throw new Error(`Invalid user ${requestedUser}`);
       }
 
       const user = await hasAccess({
