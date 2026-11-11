@@ -1,6 +1,14 @@
 ---
 import Logo from "../assets/logo.svg";
-import Connect from "../components/Connect.astro";
+import EthereumLogin from "./EthereumLogin.astro";
+import PasskeyLogin from "./PasskeyLogin.astro";
+import PasswordLogin from "./PasswordLogin.astro";
+
+const methods = [
+    { id: "passkey", label: "Passkey", Component: PasskeyLogin },
+    { id: "ethereum", label: "Ethereum", Component: EthereumLogin },
+    { id: "password", label: "Password", Component: PasswordLogin },
+] as const;
 ---
 
 <div
@@ -12,14 +20,55 @@ import Connect from "../components/Connect.astro";
             <span class="text-3xl font-semibold">Xnode Auth</span>
         </div>
         <span
-            >Log in with your web3 wallet to access <span
-                id="redirect"
-                class="font-semibold"></span></span
+            >Log in to access <span id="redirect" class="font-semibold"
+            ></span></span
         >
     </div>
-    <Connect />
-    <span id="error" class="text-red-600 hidden"></span>
-    <div id="signing" class="gap-2 hidden">
+
+    <div role="tablist" class="flex w-full rounded-lg bg-gray-900 p-1">
+        {
+            methods.map(({ id, label }, index) => (
+                <button
+                    type="button"
+                    role="tab"
+                    id={`login-tab-${id}`}
+                    data-login-tab={id}
+                    aria-controls={`login-panel-${id}`}
+                    aria-selected={index === 0 ? "true" : "false"}
+                    class={`flex-1 px-3 py-1.5 rounded-md text-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                        index === 0
+                            ? "bg-blue-950/80 text-gray-100"
+                            : "text-gray-400 hover:text-gray-200"
+                    }`}
+                >
+                    {label}
+                </button>
+            ))
+        }
+    </div>
+
+    {
+        methods.map(({ id, Component }, index) => (
+            <div
+                id={`login-panel-${id}`}
+                role="tabpanel"
+                aria-labelledby={`login-tab-${id}`}
+                data-login-method={id}
+                class="w-full flex flex-col gap-3"
+                style={index === 0 ? undefined : "display: none"}
+            >
+                <Component />
+            </div>
+        ))
+    }
+
+    <div
+        id="login-status"
+        class="flex place-items-center gap-2 text-sm text-gray-400"
+        style="display: none"
+        role="status"
+        aria-live="polite"
+    >
         <svg
             class="text-gray-300 animate-spin"
             viewBox="0 0 64 64"
@@ -42,133 +91,20 @@ import Connect from "../components/Connect.astro";
                 stroke-linejoin="round"
                 class="text-gray-900"></path>
         </svg>
-        <span>Please sign the authentication message in your wallet.</span>
+        <span id="login-status-text"></span>
     </div>
-    <button
-        id="authenticate"
-        class="px-4 py-2 rounded-lg bg-blue-950/80 hover:bg-blue-950 cursor-pointer hidden"
-        >Authenticate</button
+
+    <div
+        id="login-error"
+        class="text-sm text-red-500"
+        style="display: none"
+        role="alert"
     >
+    </div>
 </div>
+
 <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const redirect = urlParams.get("redirect") ?? window.location.origin;
-    const rejected = urlParams.get("rejected");
+    import { initLoginShell } from "../scripts/login";
 
-    export function setRedirect(redirect: string) {
-        const node = document.getElementById("redirect");
-        if (node) {
-            node.textContent = redirect;
-        }
-    }
-
-    export function setError(error: string) {
-        const node = document.getElementById("error");
-        if (node) {
-            node.style.display = error ? "flex" : "none";
-            node.textContent = error;
-        }
-    }
-
-    setRedirect(redirect);
-    setError(rejected ?? "");
-
-    const { appkitStore } = await import("../store/appkit");
-    function updateDisplay() {
-        // Signing indicator
-        {
-            const node = document.getElementById("signing");
-            if (node) {
-                const account = appkitStore.account.get();
-                node.style.display = account && signingState ? "flex" : "none";
-            }
-        }
-
-        // Authenticate button
-        {
-            const node = document.getElementById("authenticate");
-            if (node) {
-                const account = appkitStore.account.get();
-                node.style.display = account && !signingState ? "flex" : "none";
-            }
-        }
-    }
-
-    let signingState = false;
-    function setSigning(signing: boolean) {
-        signingState = signing;
-        updateDisplay();
-    }
-
-    let walletChanges = 0;
-    appkitStore.account.subscribe((account) => {
-        if (!account) {
-            signingState = false;
-        }
-
-        updateDisplay();
-
-        if (walletChanges > 1) {
-            setError("");
-        }
-
-        walletChanges++;
-    });
-
-    const { wagmiAdapter } = await import("../scripts/appkit");
-    const { getMessage } = await import("../lib/message");
-    const { toXnodeEthereumUser } = await import("../lib/xnode-user");
-    const { signMessage } = await import("@wagmi/core");
-    document
-        .getElementById("authenticate")
-        ?.addEventListener("click", async () => {
-            setError("");
-            setSigning(true);
-            try {
-                const address = appkitStore.account.get();
-                if (!address) {
-                    throw { message: "No wallet connected." };
-                }
-
-                const timestamp = Math.round(Date.now() / 1000); // EPOCH time in seconds
-                const domain = window.location.hostname;
-                const _wagmiAdapter = await wagmiAdapter();
-                const signature = await signMessage(_wagmiAdapter.wagmiConfig, {
-                    message: getMessage({
-                        domain,
-                        timestamp,
-                    }),
-                });
-
-                const res = await fetch("/xnode-auth/api/login", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        user: toXnodeEthereumUser({
-                            address,
-                        }),
-                        signature,
-                        timestamp: timestamp.toString(),
-                    }),
-                });
-
-                if (res.status === 200) {
-                    window.location.href = redirect;
-                } else {
-                    const body = await res.json();
-                    throw body.error;
-                }
-            } catch (e: any) {
-                console.error(e);
-                setError(
-                    "shortMessage" in e
-                        ? e.shortMessage
-                        : e.message ?? "An unknown error occurred.",
-                );
-            } finally {
-                setSigning(false);
-            }
-        });
+    initLoginShell();
 </script>

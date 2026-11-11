@@ -1,4 +1,10 @@
-import { createPublicClient, http, isHex, verifyMessage } from "viem";
+import {
+  createPublicClient,
+  http,
+  isAddress,
+  isHex,
+  verifyMessage,
+} from "viem";
 import type { Data } from "../source";
 
 export async function verifyXnodeEthereumUser({
@@ -12,7 +18,8 @@ export async function verifyXnodeEthereumUser({
   signature: string; // Hex wallet signature
   data: Data[0];
 }): Promise<boolean> {
-  if (!isHex(signature)) {
+  let address = user.replace("ethereum:", "");
+  if (!isHex(signature) || !isAddress(address)) {
     return false;
   }
 
@@ -21,14 +28,14 @@ export async function verifyXnodeEthereumUser({
       transport: http(data.config.ethereum.rpc),
     });
     return await publicClient.verifyMessage({
-      address: `0x${user.replace("ethereum:", "")}`,
+      address,
       message,
       signature,
     });
   }
 
   return await verifyMessage({
-    address: `0x${user.replace("ethereum:", "")}`,
+    address,
     message,
     signature,
   });

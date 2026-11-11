@@ -1,0 +1,432 @@
+<div class="flex flex-col gap-3">
+    <button
+        type="button"
+        data-login-action
+        id="passkey-primary"
+        class="w-full px-4 py-2 rounded-lg bg-blue-950/80 hover:bg-blue-950 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+        Continue with passkey
+    </button>
+    <button
+        type="button"
+        data-login-action
+        id="passkey-secondary"
+        class="text-sm text-gray-400 hover:text-gray-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+        Create a passkey
+    </button>
+    <button
+        type="button"
+        data-login-action
+        id="passkey-create"
+        class="hidden text-sm text-gray-400 hover:text-gray-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+        Create a passkey
+    </button>
+</div>
+
+<script>
+    import { loginStore, setLogin } from "../store/login";
+    import { loginMessage, runLogin, submitLogin } from "../scripts/login";
+    import {
+        assertionToLoginSignature,
+        base64url,
+        createPasskey,
+        fromBase64url,
+        getAssertion,
+        intersectCandidates,
+        isNotAllowed,
+        passkeysSupported,
+        randomChallenge,
+        readCachedPasskey,
+        recoverCandidates,
+        writeCachedPasskey,
+        type CachedPasskey,
+    } from "../scripts/passkey";
+
+    const primary = document.getElementById(
+        "passkey-primary",
+    ) as HTMLButtonElement | null;
+    const secondary = document.getElementById(
+        "passkey-secondary",
+    ) as HTMLButtonElement | null;
+    const create = document.getElementById(
+        "passkey-create",
+    ) as HTMLButtonElement | null;
+
+    type Pending =
+        | { kind: "recovery"; credentialId: string; candidates: string[] }
+        | { kind: "signin"; credentialId: string; user: string };
+
+    let pending: Pending | null = null;
+
+    function render() {
+        if (!primary || !secondary) {
+            return;
+        }
+
+        const cached = readCachedPasskey();
+        primary.textContent = pending
+            ? "Continue signing in"
+            : cached
+              ? "Sign in with passkey"
+              : "Continue with passkey";
+        secondary.textContent = pending
+            ? "Cancel"
+            : cached
+              ? "Use another passkey"
+              : "Create a passkey";
+        create?.classList.toggle("hidden", !cached || pending !== null);
+    }
+
+    async function signInWithAssertion({
+        credentialId,
+        user,
+        message,
+        timestamp,
+    }: {
+        credentialId: string;
+        user: string;
+        message: string;
+        timestamp: number;
+    }) {
+        const assertion = await getAssertion({
+            challenge: new TextEncoder().encode(message),
+            allowCredentials: [
+                { type: "public-key", id: fromBase64url(credentialId) },
+            ],
+        });
+
+        await submitLogin({
+            user,
+            signature: assertionToLoginSignature(assertion, message),
+            timestamp,
+        });
+    }
+
+    function signInCached(cached: CachedPasskey) {
+        void runLogin(async () => {
+            setLogin({ status: "Waiting for your passkey…" });
+            const { message, timestamp } = loginMessage();
+
+            try {
+                await signInWithAssertion({
+                    credentialId: cached.credentialId,
+                    user: cached.user,
+                    message,
+                    timestamp,
+                });
+            } catch (error) {
+                if (isNotAllowed(error)) {
+                    throw new Error(
+                        "Passkey sign-in was cancelled or the passkey is unavailable. Try again or use another passkey.",
+                    );
+                }
+                throw error;
+            }
+        });
+    }
+
+    function recover() {
+        void runLogin(async () => {
+            setLogin({ status: "Waiting for your passkey…" });
+
+            let first: PublicKeyCredential;
+            try {
+                first = await getAssertion({
+                    challenge: randomChallenge(),
+                    allowCredentials: [],
+                });
+            } catch (error) {
+                if (isNotAllowed(error)) {
+                    throw new Error(
+                        "No passkey found, or the prompt was dismissed. Try again or create a passkey.",
+                    );
+                }
+                throw error;
+            }
+
+            const { message, timestamp } = loginMessage();
+            const secondPromise = getAssertion({
+                challenge: new TextEncoder().encode(message),
+                allowCredentials: [{ type: "public-key", id: first.rawId }],
+            }).then(
+                (value) => ({ ok: true as const, value }),
+                (error) => ({ ok: false as const, error }),
+            );
+
+            setLogin({ status: "Recovering your passkey…" });
+            const candidates = await recoverCandidates(first);
+            const second = await secondPromise;
+
+            if (!second.ok) {
+                if (isNotAllowed(second.error)) {
+                    pending = {
+                        kind: "recovery",
+                        credentialId: base64url(
+                            new Uint8Array(first.rawId),
+                        ),
+                        candidates,
+                    };
+                    setLogin({
+                        status: "Tap Continue to finish signing in.",
+                    });
+                    render();
+                    return;
+                }
+                throw second.error;
+            }
+
+            await finishRecovery({
+                second: second.value,
+                candidates,
+                message,
+                timestamp,
+            });
+        });
+    }
+
+    async function finishRecovery({
+        second,
+        candidates,
+        message,
+        timestamp,
+    }: {
+        second: PublicKeyCredential;
+        candidates: string[];
+        message: string;
+        timestamp: number;
+    }) {
+        let common: string[];
+        try {
+            const secondCandidates = await recoverCandidates(second);
+            common = intersectCandidates(candidates, secondCandidates);
+        } catch (error) {
+            pending = null;
+            render();
+            throw error;
+        }
+
+        if (common.length !== 1) {
+            pending = null;
+            render();
+            throw new Error(
+                "Could not recover your passkey. Please try again or create a new passkey.",
+            );
+        }
+
+        const user = `passkey:${common[0]}`;
+        writeCachedPasskey({
+            credentialId: base64url(new Uint8Array(second.rawId)),
+            user,
+        });
+        pending = null;
+        render();
+
+        await submitLogin({
+            user,
+            signature: assertionToLoginSignature(second, message),
+            timestamp,
+        });
+    }
+
+    function continuePending() {
+        if (!pending) {
+            return;
+        }
+
+        const current = pending;
+        void runLogin(async () => {
+            setLogin({ status: "Waiting for your passkey…" });
+            const { message, timestamp } = loginMessage();
+
+            if (current.kind === "signin") {
+                try {
+                    await signInWithAssertion({
+                        credentialId: current.credentialId,
+                        user: current.user,
+                        message,
+                        timestamp,
+                    });
+                } catch (error) {
+                    if (isNotAllowed(error)) {
+                        throw new Error(
+                            "Passkey sign-in was cancelled. Tap Continue to try again.",
+                        );
+                    }
+                    throw error;
+                }
+                return;
+            }
+
+            let second: PublicKeyCredential;
+            try {
+                second = await getAssertion({
+                    challenge: new TextEncoder().encode(message),
+                    allowCredentials: [
+                        {
+                            type: "public-key",
+                            id: fromBase64url(current.credentialId),
+                        },
+                    ],
+                });
+            } catch (error) {
+                if (isNotAllowed(error)) {
+                    throw new Error(
+                        "Passkey sign-in was cancelled. Tap Continue to try again.",
+                    );
+                }
+                throw error;
+            }
+
+            await finishRecovery({
+                second,
+                candidates: current.candidates,
+                message,
+                timestamp,
+            });
+        });
+    }
+
+    function createNewPasskey() {
+        void runLogin(async () => {
+            setLogin({ status: "Creating your passkey…" });
+
+            let created: Awaited<ReturnType<typeof createPasskey>>;
+            try {
+                created = await createPasskey();
+            } catch (error) {
+                if (isNotAllowed(error)) {
+                    throw new Error("Passkey creation was cancelled.");
+                }
+                if (
+                    error instanceof DOMException &&
+                    (error.name === "ConstraintError" ||
+                        error.name === "NotSupportedError")
+                ) {
+                    throw new Error(
+                        "This authenticator cannot store a discoverable passkey. Try a platform passkey or another security key.",
+                    );
+                }
+                throw error;
+            }
+
+            writeCachedPasskey({
+                credentialId: created.credentialId,
+                user: created.user,
+            });
+            pending = null;
+            render();
+
+            setLogin({ status: "Signing in with your new passkey…" });
+            const { message, timestamp } = loginMessage();
+            const result = await getAssertion({
+                challenge: new TextEncoder().encode(message),
+                allowCredentials: [
+                    {
+                        type: "public-key",
+                        id: created.credential.rawId,
+                    },
+                ],
+            }).then(
+                (value) => ({ ok: true as const, value }),
+                (error) => ({ ok: false as const, error }),
+            );
+
+            if (!result.ok) {
+                if (isNotAllowed(result.error)) {
+                    pending = {
+                        kind: "signin",
+                        credentialId: created.credentialId,
+                        user: created.user,
+                    };
+                    setLogin({
+                        status: "Tap Continue to finish signing in.",
+                    });
+                    render();
+                    return;
+                }
+                throw result.error;
+            }
+
+            await submitLogin({
+                user: created.user,
+                signature: assertionToLoginSignature(
+                    result.value,
+                    message,
+                ),
+                timestamp,
+            });
+        });
+    }
+
+    if (!passkeysSupported()) {
+        primary?.removeAttribute("data-login-action");
+        secondary?.removeAttribute("data-login-action");
+        create?.removeAttribute("data-login-action");
+
+        if (primary) {
+            primary.disabled = true;
+            primary.textContent = "Passkeys unavailable";
+        }
+        if (secondary) {
+            secondary.style.display = "none";
+        }
+        if (create) {
+            create.style.display = "none";
+        }
+        setLogin({
+            error: window.isSecureContext
+                ? "Passkeys are not supported in this browser."
+                : "Passkeys require a secure connection (HTTPS).",
+        });
+    } else {
+        primary?.addEventListener("click", () => {
+            if (loginStore.get().busy) {
+                return;
+            }
+            if (pending) {
+                continuePending();
+                return;
+            }
+
+            const cached = readCachedPasskey();
+            if (cached) {
+                signInCached(cached);
+                return;
+            }
+
+            recover();
+        });
+
+        secondary?.addEventListener("click", () => {
+            if (loginStore.get().busy) {
+                return;
+            }
+            if (pending) {
+                pending = null;
+                setLogin({ status: null, error: null });
+                render();
+                return;
+            }
+
+            const cached = readCachedPasskey();
+            if (cached) {
+                recover();
+                return;
+            }
+
+            createNewPasskey();
+        });
+
+        create?.addEventListener("click", () => {
+            if (loginStore.get().busy) {
+                return;
+            }
+
+            createNewPasskey();
+        });
+
+        render();
+    }
+</script>

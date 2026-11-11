@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@astrojs/node": "^11",
+    "@noble/curves": "^1",
     "@reown/appkit": "^1",
     "@reown/appkit-adapter-wagmi": "^1",
     "@tailwindcss/vite": "^4",
