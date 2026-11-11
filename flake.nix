@@ -25,7 +25,6 @@
           {
             cfg,
             config,
-            pkgs,
             lib,
             ...
           }:

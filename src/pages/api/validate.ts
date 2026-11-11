@@ -1,11 +1,9 @@
 import type { APIRoute } from "astro";
 import { getSources, hasAccess } from "../../lib/access";
-import {
-  verifyXnodeEthereumUser,
-  verifyXnodePasswordUser,
-} from "../../lib/verify";
-import { isHex } from "viem";
 import { getMessage } from "../../lib/message";
+import { verifyXnodeEthereumUser } from "../../lib/verify/ethereum";
+import { verifyXnodePasswordUser } from "../../lib/verify/password";
+import { verifyXnodePasskeyUser } from "../../lib/verify/passkey";
 
 export const prerender = false;
 
@@ -33,8 +31,8 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       const signature =
         cookies.get("xnode_auth_signature")?.value ??
         request.headers.get("Xnode-Auth-Signature");
-      if (!isHex(signature)) {
-        throw new Error(`Signature ${signature} is not valid hex.`);
+      if (!signature) {
+        throw new Error(`Signature is missing.`);
       }
 
       const timestamp =
@@ -72,6 +70,20 @@ export const GET: APIRoute = async ({ request, cookies }) => {
           message,
           signature,
           data,
+        });
+        if (!validSignature) {
+          throw new Error(
+            `Invalid signature ${signature} (domain ${domain}, timestamp ${timestamp}) for ${requestedUser}`,
+          );
+        }
+      } else if (requestedUser?.startsWith("passkey:")) {
+        const { signature, timestamp } = getSignatureAndTimestamp();
+        const message = getMessage({ domain, timestamp });
+
+        const validSignature = await verifyXnodePasskeyUser({
+          user: requestedUser,
+          message,
+          signature,
         });
         if (!validSignature) {
           throw new Error(
