@@ -6,6 +6,23 @@ export function getRedirect(): string {
     return urlParams.get("redirect") ?? window.location.origin;
 }
 
+const REJECTED_METHOD_PATTERN = /(?:^|\s)(passkey|ethereum|password):/;
+
+export function loginMethodForRejected(
+    rejected: string | null,
+): LoginMethod | null {
+    const prefix = rejected?.match(REJECTED_METHOD_PATTERN)?.[1];
+    if (
+        prefix === "passkey" ||
+        prefix === "ethereum" ||
+        prefix === "password"
+    ) {
+        return prefix;
+    }
+
+    return null;
+}
+
 export function loginMessage(): {
     domain: string;
     timestamp: number;
@@ -116,7 +133,11 @@ export function initLoginShell(): void {
     });
 
     if (rejected) {
-        setLogin({ error: rejected });
+        const method = loginMethodForRejected(rejected);
+        setLogin({
+            error: rejected,
+            ...(method ? { method } : {}),
+        });
     }
 
     loginStore.subscribe((state) => {

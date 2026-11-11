@@ -72,9 +72,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
           data,
         });
         if (!validSignature) {
-          throw new Error(
-            `Invalid signature ${signature} (domain ${domain}, timestamp ${timestamp}) for ${requestedUser}`,
-          );
+          throw new Error(`Invalid signature for ${requestedUser}`);
         }
       } else if (requestedUser?.startsWith("passkey:")) {
         const { signature, timestamp } = getSignatureAndTimestamp();
@@ -86,9 +84,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
           signature,
         });
         if (!validSignature) {
-          throw new Error(
-            `Invalid signature ${signature} (domain ${domain}, timestamp ${timestamp}) for ${requestedUser}`,
-          );
+          throw new Error(`Invalid signature for ${requestedUser}`);
         }
       } else if (requestedUser?.startsWith("password:")) {
         const { signature, timestamp } = getSignatureAndTimestamp();
@@ -101,13 +97,11 @@ export const GET: APIRoute = async ({ request, cookies }) => {
           data,
         });
         if (!validSignature) {
-          throw new Error(
-            `Invalid signature ${signature} (domain ${domain}, timestamp ${timestamp}) for ${requestedUser}`,
-          );
+          throw new Error(`Invalid password for ${requestedUser}`);
         }
       } else if (requestedUser?.startsWith("ip:")) {
         if (requestedUser !== `ip:${ip}`) {
-          throw new Error(`Invalid ip ${ip} for ${requestedUser}`);
+          throw new Error(`Invalid ip for ${requestedUser}`);
         }
       } else {
         throw new Error(`Invalid user ${requestedUser}`);
