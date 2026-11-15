@@ -1,12 +1,19 @@
-import type { APIRoute } from "astro";
+import type { APIRoute, AstroCookieSetOptions } from "astro";
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ cookies }) => {
   try {
-    cookies.delete("xnode_auth_user");
-    cookies.delete("xnode_auth_signature");
-    cookies.delete("xnode_auth_timestamp");
+    const cookieOptions = {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      path: "/",
+    } as Omit<AstroCookieSetOptions, "expires" | "maxAge" | "encode">;
+
+    cookies.delete("xnode_auth_user", cookieOptions);
+    cookies.delete("xnode_auth_signature", cookieOptions);
+    cookies.delete("xnode_auth_timestamp", cookieOptions);
 
     return new Response(null, {
       status: 200,
