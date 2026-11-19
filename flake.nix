@@ -58,65 +58,79 @@
                 type = lib.types.attrsOf (
                   lib.types.submodule {
                     options = {
-                      accessList = {
-                        users = lib.mkOption {
-                          type = lib.types.attrsOf (
-                            lib.types.submodule {
-                              options = {
-                                roles = lib.mkOption {
-                                  type = lib.types.listOf lib.types.str;
-                                  default = [ ];
-                                  example = [
-                                    "sysadmin"
-                                    "moderator"
-                                  ];
-                                  description = ''
-                                    Roles on this domain to grant to this user.
-                                  '';
-                                };
+                      users = lib.mkOption {
+                        type = lib.types.attrsOf (
+                          lib.types.submodule {
+                            options = {
+                              roles = lib.mkOption {
+                                type = lib.types.listOf lib.types.str;
+                                default = [ ];
+                                example = [
+                                  "sysadmin"
+                                  "moderator"
+                                ];
+                                description = ''
+                                  Roles on this domain to grant to this user.
+                                '';
                               };
-                            }
-                          );
-                          default = { };
-                          example = {
-                            "regex:^ethereum:*.$" = {
-                              roles = [ "user" ];
                             };
-                            "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = {
-                              roles = [ "admin" ];
-                            };
+                          }
+                        );
+                        default = { };
+                        example = {
+                          "regex:^ethereum:*.$" = {
+                            roles = [ "user" ];
                           };
-                          description = ''
-                            Users to roles mapping.
-                          '';
+                          "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = {
+                            roles = [ "admin" ];
+                          };
                         };
+                        description = ''
+                          Users to roles mapping.
+                        '';
+                      };
 
-                        roles = lib.mkOption {
-                          type = lib.types.attrsOf (
-                            lib.types.submodule {
-                              options = {
-                                paths = lib.mkOption {
-                                  type = lib.types.str;
-                                  default = ".*";
-                                  example = "^(?:\/admin|\/secret)(?:\?.*)?$";
-                                  description = ''
-                                    Regex of paths this role has access to.
-                                  '';
-                                };
+                      roles = lib.mkOption {
+                        type = lib.types.attrsOf (
+                          lib.types.submodule {
+                            options = {
+                              paths = lib.mkOption {
+                                type = lib.types.listOf lib.types.str;
+                                default = [ ".*" ];
+                                example = [
+                                  "^(?:\\/admin|\\/secret)(?:\\?.*)?$"
+                                ];
+                                description = ''
+                                  Regexes of paths this role has access to. Access is granted if any regex matches.
+                                '';
                               };
-                            }
-                          );
-                          default = { };
-                          example = {
-                            "user" = {
-                              paths = "^\/user\/profile(?:\?.*)?$";
                             };
-                            "admin" = { };
+                          }
+                        );
+                        default = { };
+                        example = {
+                          "user" = {
+                            paths = [ "^\\/user\\/profile(?:\\?.*)?$" ];
                           };
-                          description = ''
-                            Role to allowed paths mapping.
-                          '';
+                          "admin" = { };
                         };
+                        description = ''
+                          Role to allowed paths mapping.
+                        '';
+                      };
+                      aliases = lib.mkOption {
+                        type = lib.types.attrsOf lib.types.str;
+                        default = { };
+                        example = {
+                          "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = "admin";
+                          "password:plopmenz" = "plopmenz";
+                        };
+                        description = ''
+                          User to alias mapping. The alias: prefix is appended automatically, so an alias always starts with alias:.
+                          If an alias exists for an authenticated user, roles in users are matched against the alias.
+                          The alias is in Xnode-Auth-User instead of the raw user (which is in Xnode-Auth-User-Raw).
+                          For users with no alias Xnode-Auth-User = Xnode-Auth-User-Raw.
+                        '';
                       };
 
                       paths = lib.mkOption {
@@ -127,7 +141,7 @@
                           "/secret"
                         ];
                         description = ''
-                          Paths to protect with the accessList authentication.
+                          Paths to protect.
                         '';
                       };
 
@@ -143,11 +157,11 @@
                       config = {
                         ethereum = {
                           rpc = lib.mkOption {
-                            type = lib.types.str;
-                            default = "";
-                            example = "https://mainnet.base.org";
+                            type = lib.types.listOf lib.types.str;
+                            default = [ ];
+                            example = [ "https://mainnet.base.org" ];
                             description = ''
-                              Use an RPC to validate smart account signatures.
+                              RPCs used to validate smart account signatures. A signature that is valid on any of the RPCs is accepted.
                             '';
                           };
                         };
@@ -209,38 +223,38 @@
                 default = { };
                 example = {
                   "example.com" = {
-                    accessList = {
-                      users = {
-                        "regex:^ethereum:*.$" = {
-                          roles = [ "user" ];
-                        };
+                    users = {
+                      "regex:^(?!ip:).*$" = {
+                        roles = [ "user" ];
                       };
-                      roles = {
-                        "user" = { };
-                      };
+                    };
+                    roles = {
+                      "user" = { };
                     };
                   };
                   "admin.plopmenz.com" = {
-                    accessList = {
-                      users = {
-                        "ethereum:0000000000000000000000000000000000000000" = {
-                          roles = [ "secret-admin" ];
-                        };
-                        "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = {
-                          roles = [
-                            "admin"
-                            "secret-admin"
-                          ];
-                        };
+                    users = {
+                      "ethereum:0000000000000000000000000000000000000000" = {
+                        roles = [ "secret-admin" ];
                       };
-                      roles = {
-                        "secret-admin" = {
-                          paths = "^\/secret-admin(?:\?.*)?$";
-                        };
-                        "admin" = {
-                          paths = "^\/admin(?:\?.*)?$";
-                        };
+                      # Roles of aliased users are defined on the alias
+                      "alias:plopmenz" = {
+                        roles = [
+                          "admin"
+                          "secret-admin"
+                        ];
                       };
+                    };
+                    roles = {
+                      "secret-admin" = {
+                        paths = [ "^\/secret-admin(?:\\?.*)?$" ];
+                      };
+                      "admin" = {
+                        paths = [ "^\/admin(?:\\?.*)?$" ];
+                      };
+                    };
+                    aliases = {
+                      "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = "plopmenz";
                     };
                     paths = [
                       "/secret-admin"
@@ -304,28 +318,74 @@
                                 domains = lib.mkOption {
                                   type = lib.types.str;
                                   default = "^.*$";
-                                  example = "^manager\.xnode\.local$";
+                                  example = "^manager\\.xnode\\.local$";
                                   description = ''
                                     Regex that defines which domains this restriction should be applied to.
                                   '';
                                 };
 
-                                users = lib.mkOption {
-                                  type = lib.types.str;
-                                  default = "^.*$";
-                                  example = "^(ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3|ethereum:2309762aaca0a8f689463a42c0a6a84be3a7ea51)$";
-                                  description = ''
-                                    Regex that defines allowed users.
-                                  '';
+                                users = {
+                                  key = lib.mkOption {
+                                    type = lib.types.str;
+                                    default = "^.*$";
+                                    example = "^$";
+                                    description = ''
+                                      Regex that defines the user keys this source is allowed to define in users.
+                                      Set to "^$" to disallow user definitions.
+                                    '';
+                                  };
+                                  value = {
+                                    roles = lib.mkOption {
+                                      type = lib.types.str;
+                                      default = "^.*$";
+                                      example = "^(?!admin$).*$";
+                                      description = ''
+                                        Regex applied to every role this source is allowed to assign to a user in users.
+                                      '';
+                                    };
+                                  };
                                 };
 
-                                paths = lib.mkOption {
-                                  type = lib.types.str;
-                                  default = "^.*$";
-                                  example = "^(?:\/config.*|\/file\/container:.*|\/info.*|\/process\/container:.*|\/usage.*|\/request.*)$";
-                                  description = ''
-                                    Regex that defines allowed paths.
-                                  '';
+                                roles = {
+                                  key = lib.mkOption {
+                                    type = lib.types.str;
+                                    default = "^.*$";
+                                    example = "^$";
+                                    description = ''
+                                      Regex that defines the role keys this source is allowed to define in roles.
+                                      Set to "^$" to disallow role definitions.
+                                    '';
+                                  };
+                                  value = {
+                                    paths = lib.mkOption {
+                                      type = lib.types.str;
+                                      default = "^.*$";
+                                      example = "^\\/public(?:\\?.*)?$";
+                                      description = ''
+                                        Regex applied to every paths regex this source is allowed to set on a role in roles.
+                                      '';
+                                    };
+                                  };
+                                };
+
+                                aliases = {
+                                  key = lib.mkOption {
+                                    type = lib.types.str;
+                                    default = "^.*$";
+                                    example = "^ethereum:.*$";
+                                    description = ''
+                                      Regex that defines the user keys this source is allowed to define in aliases.
+                                    '';
+                                  };
+                                  value = lib.mkOption {
+                                    type = lib.types.str;
+                                    default = "^.*$";
+                                    example = "^(?!admin$).*$";
+                                    description = ''
+                                      Regex that defines the alias values this source is allowed to set
+                                      E.g. "^(?!admin$).*$" allows all aliases except admin.
+                                    '';
+                                  };
                                 };
                               };
                             }
@@ -333,18 +393,25 @@
                           default = [ ];
                           example = [
                             {
-                              # Do not allow this source to specify paths other than /private for domain xnode-auth.container
+                              # Only allow this source to define aliases (except admin) for domain xnode-auth.container, no user or role definitions
                               domains = "^xnode-auth.container$";
-                              paths = "^\/private(?:\\?.*)?$";
+                              users.key = "^$";
+                              roles.key = "^$";
+                              aliases.value = "^(?!admin$).*$";
                             }
                             {
-                              # Only allow this source to give access to ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3 for any subdomain of plopmenz.com.
-                              domains = "^.*\.plopmenz\.com$";
-                              users = "^ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3$";
+                              # Only allow this source to define the user ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3 with role user for any subdomain of plopmenz.com
+                              domains = "^.*\\.plopmenz\\.com$";
+                              users = {
+                                key = "^ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3$";
+                                value.roles = "^user$";
+                              };
                             }
                           ];
                           description = ''
                             Restrictions that apply only to certain domains.
+                            They limit which users, roles and aliases a source is allowed to define on the matching domains.
+                            Definitions that are not allowed are ignored.
                           '';
                         };
                       };
@@ -362,14 +429,15 @@
                   }
                   {
                     # Give remote file https://core.openmesh.network/xnode-auth.json full access over all openmesh.network subdomains
-                    # Except on xnode.openmesh.network, where it is only allowed to grant access to ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3
+                    # Except on xnode.openmesh.network, where it is only allowed to grant the "user" role
                     source = "https:core.openmesh.network/xnode-auth.json";
                     restrictions = {
                       domains = "^.*\.openmesh\.network$";
                       domainSpecific = [
                         {
                           domains = "^xnode\.openmesh\.network$";
-                          users = "^ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3$";
+                          users.value.roles = "^user$";
+                          aliases.value = "^$";
                         }
                       ];
                     };
@@ -424,8 +492,10 @@
                             extraConfig = ''
                               auth_request /xnode-auth/api/validate;
                               auth_request_set $auth_resp_xnode_auth_user $upstream_http_xnode_auth_user;
+                              auth_request_set $auth_resp_xnode_auth_user_raw $upstream_http_xnode_auth_user_raw;
                               auth_request_set $auth_resp_xnode_auth_deny_reason $upstream_http_xnode_auth_deny_reason;
                               proxy_set_header Xnode-Auth-User $auth_resp_xnode_auth_user;
+                              proxy_set_header Xnode-Auth-User-Raw $auth_resp_xnode_auth_user_raw;
                               error_page 401 = @login;
                             '';
                           }

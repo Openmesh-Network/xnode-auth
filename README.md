@@ -1,14 +1,23 @@
 # Xnode Auth
 
-In domain NGINX [auth_request](https://nginx.org/en/docs/http/ngx_http_auth_request_module.html) web3 authenticator and login dashboard.
+In domain NGINX [auth_request](https://nginx.org/en/docs/http/ngx_http_auth_request_module.html) authenticator and login dashboard.
 
-## Commands (in root folder)
+## Supported Authentication Protocols
+
+- Ethereum signatures
+- Passkeys
+- Password
+- IP address
+
+## Commands
 
 ```
+nix build
+nix develop
 nix run
 ```
 
-## Commands (in astro-app)
+or
 
 ```
 npm i

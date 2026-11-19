@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
-import { getSource } from "../../../lib/source";
+import { getDomainSources } from "../../../lib/access";
+import { mergeSources } from "../../../lib/source";
 
 export const prerender = false;
 
@@ -14,10 +15,9 @@ export const GET: APIRoute = async ({ request }) => {
     );
   }
 
-  let projectid = await getSource({ id: "memory" }).then(
-    (data) =>
-      data[domain]?.config?.appkit?.projectid ??
-      "6afdeb3a0496b33061a69538819a9a7e",
-  );
+  const sources = await getDomainSources({ domain });
+  const data = mergeSources({ sources, domain });
+  const projectid =
+    data.config?.appkit?.projectid ?? "6afdeb3a0496b33061a69538819a9a7e";
   return Response.json({ projectid });
 };

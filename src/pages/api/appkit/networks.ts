@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
-import { getSource } from "../../../lib/source";
+import { getDomainSources } from "../../../lib/access";
+import { mergeSources } from "../../../lib/source";
 
 export const prerender = false;
 
@@ -14,8 +15,8 @@ export const GET: APIRoute = async ({ request }) => {
     );
   }
 
-  let networks = await getSource({ id: "memory" }).then(
-    (data) => data[domain]?.config?.appkit?.networks ?? ["eip155:1"],
-  );
+  const sources = await getDomainSources({ domain });
+  const data = mergeSources({ sources, domain });
+  const networks = data.config?.appkit?.networks ?? ["eip155:1"];
   return Response.json({ networks });
 };

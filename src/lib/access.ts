@@ -1,4 +1,9 @@
-import { getSource, type Restrictions, type Source } from "./source";
+import {
+  getSource,
+  type DomainData,
+  type Restrictions,
+  type Source,
+} from "./source";
 
 export async function* getSources() {
   yield {
@@ -22,71 +27,48 @@ export async function* getSources() {
   }
 }
 
+export async function getDomainSources({
+  domain,
+}: {
+  domain: string;
+}): Promise<Source[]> {
+  return (await Array.fromAsync(getSources())).filter(
+    (source) =>
+      // This source has no domain restrictions or is allowed for this domain
+      !source.restrictions?.domains ||
+      new RegExp(source.restrictions.domains).test(domain),
+  );
+}
+
 export async function hasAccess({
   users,
-  domain,
   path,
-  source,
+  data,
 }: {
   users: string[];
-  domain: string;
   path: string;
-  source: Source;
-}): Promise<string | undefined> {
-  if (source.data[domain] !== undefined) {
-    const externalUser = users.find((user) => {
-      let accessList = source.data[domain].accessList;
-      return (
-        accessList &&
-        accessList.users &&
-        Object.keys(accessList.users).some((userReg) => {
-          // user matches this userReg
-          if (userReg.startsWith("regex:")) {
-            if (!new RegExp(userReg.replace("regex:", "")).test(user)) {
-              return false;
-            }
-          } else {
-            if (userReg !== user) {
-              return false;
-            }
-          }
+  data: DomainData;
+}): Promise<{ alias: string; raw: string } | undefined> {
+  for (const user of users) {
+    const aliasName = data.aliases?.[user];
+    const alias = aliasName !== undefined ? `alias:${aliasName}` : user;
 
-          // source defines roles
-          let roles = accessList.roles;
-          if (!roles) {
-            return false;
-          }
+    for (const [userReg, userDef] of Object.entries(data.users ?? {})) {
+      // alias matches this userReg
+      const matches = userReg.startsWith("regex:")
+        ? new RegExp(userReg.replace("regex:", "")).test(alias)
+        : userReg === alias;
+      if (!matches) {
+        continue;
+      }
 
-          // source defines user and user has roles
-          let userRoles = accessList.users?.[userReg]?.roles;
-          if (!userRoles) {
-            return false;
-          }
-
-          return userRoles.some(
-            (role) =>
-              // role exists
-              Object.hasOwn(roles, role) &&
-              // role has access to path
-              new RegExp(roles[role].paths).test(path) &&
-              // there is no domainSpecific restrictions OR no restriction for this domain that rejects this user or path
-              (!source.restrictions?.domainSpecific ||
-                !source.restrictions.domainSpecific
-                  .filter((restriction) =>
-                    new RegExp(restriction.domains).test(domain),
-                  )
-                  .some(
-                    (restriction) =>
-                      !new RegExp(restriction.users).test(user) ||
-                      !new RegExp(restriction.paths).test(path),
-                  )),
-          );
-        })
-      );
-    });
-
-    if (externalUser !== undefined) {
-      return externalUser;
+      for (const role of userDef.roles) {
+        const paths = data.roles?.[role]?.paths;
+        // role exists and any of its paths regexes allows this path
+        if (paths?.some((pathRegex) => new RegExp(pathRegex).test(path))) {
+          return { alias, raw: user };
+        }
+      }
     }
   }
 

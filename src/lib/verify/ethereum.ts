@@ -23,15 +23,20 @@ export async function verifyXnodeEthereumUser({
     return false;
   }
 
-  if (data.config?.ethereum?.rpc) {
+  const rpcs = data.config?.ethereum?.rpc ?? [];
+  for (const rpc of rpcs) {
     const publicClient = createPublicClient({
-      transport: http(data.config.ethereum.rpc),
+      transport: http(rpc),
     });
-    return await publicClient.verifyMessage({
-      address,
-      message,
-      signature,
-    });
+    if (
+      await publicClient.verifyMessage({
+        address,
+        message,
+        signature,
+      })
+    ) {
+      return true;
+    }
   }
 
   return await verifyMessage({

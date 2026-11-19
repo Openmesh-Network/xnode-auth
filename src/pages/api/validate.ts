@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
-import { getSources, hasAccess } from "../../lib/access";
+import { getDomainSources, hasAccess } from "../../lib/access";
+import { mergeSources } from "../../lib/source";
 import { getMessage } from "../../lib/message";
 import { verifyXnodeEthereumUser } from "../../lib/verify/ethereum";
 import { verifyXnodePasswordUser } from "../../lib/verify/password";
@@ -25,7 +26,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       cookies.get("xnode_auth_user")?.value ??
       request.headers.get("Xnode-Auth-User") ??
       `ip:${ip}`;
-    let authenticatedUser = undefined;
+    let authenticated = undefined;
 
     const getSignatureAndTimestamp = () => {
       const signature =
@@ -46,80 +47,62 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       return { signature, timestamp: Number(timestamp) };
     };
 
-    for await (let source of getSources()) {
-      // If restrictions apply to this domain and this domain is restricted
-      if (
-        source.restrictions?.domains &&
-        !new RegExp(source.restrictions.domains).test(domain)
-      ) {
-        continue;
-      }
+    const sources = await getDomainSources({ domain });
+    const data = mergeSources({ sources, domain });
 
-      let data = source.data[domain];
-      if (!data) {
-        // No data for this domain defined
-        continue;
-      }
+    if (requestedUser?.startsWith("ethereum:")) {
+      const { signature, timestamp } = getSignatureAndTimestamp();
+      const message = getMessage({ domain, timestamp });
 
-      if (requestedUser?.startsWith("ethereum:")) {
-        const { signature, timestamp } = getSignatureAndTimestamp();
-        const message = getMessage({ domain, timestamp });
-
-        const validSignature = await verifyXnodeEthereumUser({
-          user: requestedUser,
-          message,
-          signature,
-          data,
-        });
-        if (!validSignature) {
-          throw new Error(`Invalid signature for ${requestedUser}`);
-        }
-      } else if (requestedUser?.startsWith("passkey:")) {
-        const { signature, timestamp } = getSignatureAndTimestamp();
-        const message = getMessage({ domain, timestamp });
-
-        const validSignature = await verifyXnodePasskeyUser({
-          user: requestedUser,
-          message,
-          signature,
-        });
-        if (!validSignature) {
-          throw new Error(`Invalid signature for ${requestedUser}`);
-        }
-      } else if (requestedUser?.startsWith("password:")) {
-        const { signature, timestamp } = getSignatureAndTimestamp();
-        const message = getMessage({ domain, timestamp });
-
-        const validSignature = await verifyXnodePasswordUser({
-          user: requestedUser,
-          message,
-          signature,
-          data,
-        });
-        if (!validSignature) {
-          throw new Error(`Invalid password for ${requestedUser}`);
-        }
-      } else if (requestedUser?.startsWith("ip:")) {
-        if (requestedUser !== `ip:${ip}`) {
-          throw new Error(`Invalid ip for ${requestedUser}`);
-        }
-      } else {
-        throw new Error(`Invalid user ${requestedUser}`);
-      }
-
-      const user = await hasAccess({
-        users: [requestedUser],
-        domain,
-        path,
-        source,
+      const validSignature = await verifyXnodeEthereumUser({
+        user: requestedUser,
+        message,
+        signature,
+        data,
       });
-      if (user) {
-        authenticatedUser = user;
-        break;
+      if (!validSignature) {
+        throw new Error(`Invalid signature for ${requestedUser}`);
       }
+    } else if (requestedUser?.startsWith("passkey:")) {
+      const { signature, timestamp } = getSignatureAndTimestamp();
+      const message = getMessage({ domain, timestamp });
+
+      const validSignature = await verifyXnodePasskeyUser({
+        user: requestedUser,
+        message,
+        signature,
+      });
+      if (!validSignature) {
+        throw new Error(`Invalid signature for ${requestedUser}`);
+      }
+    } else if (requestedUser?.startsWith("password:")) {
+      const { signature, timestamp } = getSignatureAndTimestamp();
+      const message = getMessage({ domain, timestamp });
+
+      const validSignature = await verifyXnodePasswordUser({
+        user: requestedUser,
+        message,
+        signature,
+        data,
+      });
+      if (!validSignature) {
+        throw new Error(`Invalid password for ${requestedUser}`);
+      }
+    } else if (requestedUser?.startsWith("ip:")) {
+      if (requestedUser !== `ip:${ip}`) {
+        throw new Error(`Invalid ip for ${requestedUser}`);
+      }
+    } else {
+      throw new Error(`Invalid user ${requestedUser}`);
     }
 
-    if (authenticatedUser === undefined) {
+    authenticated = await hasAccess({
+      users: [requestedUser],
+      path,
+      data,
+    });
+
+    if (authenticated === undefined) {
       // No requested user means that no login attempt has been made
       throw new Error(
         requestedUser === undefined ? "" : `Access denied for ${requestedUser}`,
@@ -129,7 +112,10 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     return new Response(null, {
       status: 200,
       headers: {
-        "Xnode-Auth-User": authenticatedUser,
+        // If an alias exists for the user, pass the alias instead of the raw user
+        "Xnode-Auth-User": authenticated.alias,
+        // Always pass the raw user, so the app can verify user+signature+timestamp itself for zero-trust operation
+        "Xnode-Auth-User-Raw": authenticated.raw,
       },
     });
   } catch (err: any) {
