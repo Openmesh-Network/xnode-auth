@@ -150,18 +150,52 @@
                         default = cfg.nginxConfig.subpath;
                         example = "/xnode-monetization";
                         description = ''
-                          The subpath to redirect unauthenticated users to.
+                          The subpath of the login page to redirect unauthenticated users to.
+                          The login page is always served on the config signatureDomain (or the protected domain itself when it is empty).
                         '';
                       };
 
                       config = {
+                        signatureDomain = lib.mkOption {
+                          type = lib.types.str;
+                          default = "";
+                          example = "auth.example.com";
+                          description = ''
+                            The domain that runs the xnode-auth login page and whose name is used in the signed message.
+                            Protected domains redirect to it for login, and signatures made for this domain are accepted when validating them (SSO across subdomains).
+                            Defaults to the protected domain itself.
+                          '';
+                        };
+
+                        cookieDomain = lib.mkOption {
+                          type = lib.types.str;
+                          default = "";
+                          example = ".example.com";
+                          description = ''
+                            The Domain attribute of the session cookies, so they are shared across subdomains for SSO (e.g. auth.example.com and app.example.com).
+                            Note that this exposes the signature cookie to all subdomains of that domain; apps still verify the signature themselves.
+                            Defaults to host-only cookies.
+                          '';
+                        };
+
+                        signatureExpiry = lib.mkOption {
+                          type = lib.types.int;
+                          default = 7 * 24 * 60 * 60;
+                          example = 3600;
+                          description = ''
+                            Validity of a signature in seconds.
+                            Signatures with a timestamp older than this are rejected.
+                          '';
+                        };
+
                         ethereum = {
                           rpc = lib.mkOption {
                             type = lib.types.listOf lib.types.str;
                             default = [ ];
                             example = [ "https://mainnet.base.org" ];
                             description = ''
-                              RPCs used to validate smart account signatures. A signature that is valid on any of the RPCs is accepted.
+                              RPCs used to validate smart account signatures.
+                              A signature that is valid on any of the RPCs is accepted.
                             '';
                           };
                         };
@@ -304,7 +338,7 @@
                       restrictions = {
                         domains = lib.mkOption {
                           type = lib.types.str;
-                          default = "^.*$";
+                          default = "^$";
                           example = "^manager\.xnode\.local$";
                           description = ''
                             Regex that defines allowed domains specified by this source.
@@ -327,17 +361,16 @@
                                 users = {
                                   key = lib.mkOption {
                                     type = lib.types.str;
-                                    default = "^.*$";
-                                    example = "^$";
+                                    default = "^$";
+                                    example = "^ethereum:.*$";
                                     description = ''
                                       Regex that defines the user keys this source is allowed to define in users.
-                                      Set to "^$" to disallow user definitions.
                                     '';
                                   };
                                   value = {
                                     roles = lib.mkOption {
                                       type = lib.types.str;
-                                      default = "^.*$";
+                                      default = "^$";
                                       example = "^(?!admin$).*$";
                                       description = ''
                                         Regex applied to every role this source is allowed to assign to a user in users.
@@ -349,17 +382,16 @@
                                 roles = {
                                   key = lib.mkOption {
                                     type = lib.types.str;
-                                    default = "^.*$";
-                                    example = "^$";
+                                    default = "^$";
+                                    example = "^user$";
                                     description = ''
                                       Regex that defines the role keys this source is allowed to define in roles.
-                                      Set to "^$" to disallow role definitions.
                                     '';
                                   };
                                   value = {
                                     paths = lib.mkOption {
                                       type = lib.types.str;
-                                      default = "^.*$";
+                                      default = "^$";
                                       example = "^\\/public(?:\\?.*)?$";
                                       description = ''
                                         Regex applied to every paths regex this source is allowed to set on a role in roles.
@@ -371,7 +403,7 @@
                                 aliases = {
                                   key = lib.mkOption {
                                     type = lib.types.str;
-                                    default = "^.*$";
+                                    default = "^$";
                                     example = "^ethereum:.*$";
                                     description = ''
                                       Regex that defines the user keys this source is allowed to define in aliases.
@@ -379,12 +411,77 @@
                                   };
                                   value = lib.mkOption {
                                     type = lib.types.str;
-                                    default = "^.*$";
+                                    default = "^$";
                                     example = "^(?!admin$).*$";
                                     description = ''
                                       Regex that defines the alias values this source is allowed to set
                                       E.g. "^(?!admin$).*$" allows all aliases except admin.
                                     '';
+                                  };
+                                };
+
+                                config = {
+                                  signatureDomain = lib.mkOption {
+                                    type = lib.types.str;
+                                    default = "^$";
+                                    example = "^auth\\.example\\.com$";
+                                    description = ''
+                                      Regex applied to the config signatureDomain value this source is allowed to set.
+                                    '';
+                                  };
+                                  cookieDomain = lib.mkOption {
+                                    type = lib.types.str;
+                                    default = "^$";
+                                    example = "^\\.example\\.com$";
+                                    description = ''
+                                      Regex applied to the config cookieDomain value this source is allowed to set.
+                                    '';
+                                  };
+                                  signatureExpiry = lib.mkOption {
+                                    type = lib.types.str;
+                                    default = "^$";
+                                    example = "^[0-9]+$";
+                                    description = ''
+                                      Regex applied to the config signatureExpiry value (in seconds) this source is allowed to set.
+                                    '';
+                                  };
+                                  ethereum = {
+                                    rpc = lib.mkOption {
+                                      type = lib.types.str;
+                                      default = "^$";
+                                      example = "^https://.*\\.base\\.org$";
+                                      description = ''
+                                        Regex applied to every config ethereum rpc this source is allowed to add.
+                                      '';
+                                    };
+                                  };
+                                  appkit = {
+                                    projectid = lib.mkOption {
+                                      type = lib.types.str;
+                                      default = "^$";
+                                      example = "^[0-9a-f]{32}$";
+                                      description = ''
+                                        Regex applied to the config appkit projectid this source is allowed to set.
+                                      '';
+                                    };
+                                    networks = lib.mkOption {
+                                      type = lib.types.str;
+                                      default = "^$";
+                                      example = "^eip155:.*$";
+                                      description = ''
+                                        Regex applied to every config appkit network this source is allowed to add.
+                                      '';
+                                    };
+                                  };
+                                  password = {
+                                    user = lib.mkOption {
+                                      type = lib.types.str;
+                                      default = "^$";
+                                      example = "^(?!admin$).*$";
+                                      description = ''
+                                        Regex applied to every config password user key this source is allowed to define.
+                                      '';
+                                    };
                                   };
                                 };
                               };
@@ -395,9 +492,10 @@
                             {
                               # Only allow this source to define aliases (except admin) for domain xnode-auth.container, no user or role definitions
                               domains = "^xnode-auth.container$";
-                              users.key = "^$";
-                              roles.key = "^$";
-                              aliases.value = "^(?!admin$).*$";
+                              aliases = {
+                                key = "^.*$";
+                                value = "^(?!admin$).*$";
+                              };
                             }
                             {
                               # Only allow this source to define the user ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3 with role user for any subdomain of plopmenz.com
@@ -410,7 +508,9 @@
                           ];
                           description = ''
                             Restrictions that apply only to certain domains.
-                            They limit which users, roles and aliases a source is allowed to define on the matching domains.
+                            They limit which users, roles, aliases and config values a source is allowed to define on the matching domains.
+                            All restriction fields default to "^$" (denied), so everything has to be explicitly allowed (least privilege).
+                            If no entry matches a domain, the source is unrestricted on that domain (still limited by restrictions.domains).
                             Definitions that are not allowed are ignored.
                           '';
                         };
@@ -436,8 +536,10 @@
                       domainSpecific = [
                         {
                           domains = "^xnode\.openmesh\.network$";
-                          users.value.roles = "^user$";
-                          aliases.value = "^$";
+                          users = {
+                            key = "^.*$";
+                            value.roles = "^user$";
+                          };
                         }
                       ];
                     };
@@ -493,7 +595,7 @@
                               auth_request /xnode-auth/api/validate;
                               auth_request_set $auth_resp_xnode_auth_user $upstream_http_xnode_auth_user;
                               auth_request_set $auth_resp_xnode_auth_user_raw $upstream_http_xnode_auth_user_raw;
-                              auth_request_set $auth_resp_xnode_auth_deny_reason $upstream_http_xnode_auth_deny_reason;
+                              auth_request_set $auth_resp_xnode_auth_redirect $upstream_http_xnode_auth_redirect;
                               proxy_set_header Xnode-Auth-User $auth_resp_xnode_auth_user;
                               proxy_set_header Xnode-Auth-User-Raw $auth_resp_xnode_auth_user_raw;
                               error_page 401 = @login;
@@ -527,6 +629,7 @@
                           extraConfig = ''
                             proxy_set_header Host $server_name;
                             proxy_set_header Path $request_uri;
+                            proxy_set_header X-Forwarded-Proto $scheme;
 
                             proxy_pass_request_body off;
                             proxy_set_header Content-Length "";
@@ -537,7 +640,7 @@
                           '';
                         };
                         "@login" = {
-                          return = "302 $scheme://$host${access.loginPage}/?redirect=$scheme://$host$request_uri&rejected=$auth_resp_xnode_auth_deny_reason";
+                          return = "302 $auth_resp_xnode_auth_redirect";
                         };
                       }
                     ];

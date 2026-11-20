@@ -32,12 +32,13 @@ export async function getDomainSources({
 }: {
   domain: string;
 }): Promise<Source[]> {
-  return (await Array.fromAsync(getSources())).filter(
-    (source) =>
-      // This source has no domain restrictions or is allowed for this domain
-      !source.restrictions?.domains ||
-      new RegExp(source.restrictions.domains).test(domain),
-  );
+  return (await Array.fromAsync(getSources())).filter((source) => {
+    // This source has no restrictions or is allowed for this domain
+    if (!source.restrictions) {
+      return true;
+    }
+    return new RegExp(source.restrictions.domains ?? "^$").test(domain);
+  });
 }
 
 export async function hasAccess({

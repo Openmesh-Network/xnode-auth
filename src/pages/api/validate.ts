@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { getDomainSources, hasAccess } from "../../lib/access";
-import { mergeSources } from "../../lib/source";
+import { mergeSources, type DomainData } from "../../lib/source";
 import { getMessage } from "../../lib/message";
 import { verifyXnodeEthereumUser } from "../../lib/verify/ethereum";
 import { verifyXnodePasswordUser } from "../../lib/verify/password";
@@ -9,13 +9,14 @@ import { verifyXnodePasskeyUser } from "../../lib/verify/passkey";
 export const prerender = false;
 
 export const GET: APIRoute = async ({ request, cookies }) => {
+  const domain = request.headers.get("Host");
+  const path = request.headers.get("Path");
+  let data: DomainData = {};
   try {
-    const domain = request.headers.get("Host");
     if (!domain) {
       throw new Error("Could not determine domain.");
     }
 
-    const path = request.headers.get("Path");
     if (!path) {
       throw new Error("Could not determine domain.");
     }
@@ -40,19 +41,32 @@ export const GET: APIRoute = async ({ request, cookies }) => {
         cookies.get("xnode_auth_timestamp")?.value ??
         request.headers.get("Xnode-Auth-Timestamp");
       if (!timestamp || isNaN(Number(timestamp))) {
-        // add checks if timestamp in the future or too far in the past
         throw new Error(`Timestamp ${timestamp} is not a valid number.`);
       }
 
-      return { signature, timestamp: Number(timestamp) };
+      const timestampNumber = Number(timestamp);
+      const now = Math.round(Date.now() / 1000);
+      if (timestampNumber > now) {
+        throw new Error(`Timestamp ${timestamp} is in the future.`);
+      }
+
+      const signatureExpiry = data.config?.signatureExpiry ?? 7 * 24 * 60 * 60;
+      if (now - timestampNumber > signatureExpiry) {
+        // More than signatureExpiry seconds have passed since this signature was created.
+        throw new Error(`Login expired.`);
+      }
+
+      return { signature, timestamp: timestampNumber };
     };
 
     const sources = await getDomainSources({ domain });
-    const data = mergeSources({ sources, domain });
+    data = mergeSources({ sources, domain });
+
+    const signatureDomain = data.config?.signatureDomain || domain;
 
     if (requestedUser?.startsWith("ethereum:")) {
       const { signature, timestamp } = getSignatureAndTimestamp();
-      const message = getMessage({ domain, timestamp });
+      const message = getMessage({ domain: signatureDomain, timestamp });
 
       const validSignature = await verifyXnodeEthereumUser({
         user: requestedUser,
@@ -65,7 +79,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       }
     } else if (requestedUser?.startsWith("passkey:")) {
       const { signature, timestamp } = getSignatureAndTimestamp();
-      const message = getMessage({ domain, timestamp });
+      const message = getMessage({ domain: signatureDomain, timestamp });
 
       const validSignature = await verifyXnodePasskeyUser({
         user: requestedUser,
@@ -77,7 +91,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       }
     } else if (requestedUser?.startsWith("password:")) {
       const { signature, timestamp } = getSignatureAndTimestamp();
-      const message = getMessage({ domain, timestamp });
+      const message = getMessage({ domain: signatureDomain, timestamp });
 
       const validSignature = await verifyXnodePasswordUser({
         user: requestedUser,
@@ -119,10 +133,20 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       },
     });
   } catch (err: any) {
+    const scheme = request.headers.get("X-Forwarded-Proto") ?? "https";
+    const redirectHost = data.config?.signatureDomain || domain;
+    const loginPage = data.loginPage?.startsWith("/")
+      ? data.loginPage
+      : import.meta.env.BASE_URL.replace(/\/$/, "");
+    const redirectUrl = new URL(`${scheme}://${redirectHost}${loginPage}/`);
+    if (domain && path) {
+      redirectUrl.searchParams.set("redirect", `${scheme}://${domain}${path}`);
+    }
+    redirectUrl.searchParams.set("rejected", err.message);
     return new Response(null, {
       status: 401,
       headers: {
-        "Xnode-Auth-Deny-Reason": err.message,
+        "Xnode-Auth-Redirect": redirectUrl.toString(),
       },
     });
   }

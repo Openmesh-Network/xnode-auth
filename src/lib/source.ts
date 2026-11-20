@@ -17,7 +17,16 @@ export interface DomainData {
   roles?: { [role: string]: { paths: string[] } };
   /// User -> Alias, Clash: first
   aliases?: { [user: string]: string };
+  /// Subpath of the login page. Clash: first
+  loginPage?: string | null;
   config?: {
+    /// Domain the signed message is computed over (the login page domain). Clash: first
+    signatureDomain?: string | null;
+    /// Domain attribute of the session cookies. Clash: first
+    cookieDomain?: string | null;
+    // Validity of a signature in seconds; signatures with a timestamp older than this are rejected.
+    // Clash: first
+    signatureExpiry?: number | null;
     ethereum?: {
       /// RPCs used to validate smart account signatures. Clash: merge
       rpc?: string[];
@@ -45,6 +54,14 @@ export interface DomainSpecificRestriction {
   users?: { key?: string; value?: { roles?: string } };
   roles?: { key?: string; value?: { paths?: string } };
   aliases?: { key?: string; value?: string };
+  config?: {
+    signatureDomain?: string;
+    cookieDomain?: string;
+    signatureExpiry?: string;
+    ethereum?: { rpc?: string };
+    appkit?: { projectid?: string; networks?: string };
+    password?: { user?: string };
+  };
 }
 
 export function mergeSources({
@@ -67,7 +84,6 @@ export function mergeSources({
       (restriction) => new RegExp(restriction.domains).test(domain),
     );
 
-    // Check if all restrictions are met
     const allowed = (
       keyAllowed: (restriction: DomainSpecificRestriction) => boolean,
       valueAllowed: (restriction: DomainSpecificRestriction) => boolean,
@@ -76,8 +92,8 @@ export function mergeSources({
     for (const [user, alias] of Object.entries(data.aliases ?? {})) {
       if (
         allowed(
-          (r) => new RegExp(r.aliases?.key ?? "^.*$").test(user),
-          (r) => new RegExp(r.aliases?.value ?? "^.*$").test(alias),
+          (r) => new RegExp(r.aliases?.key ?? "^$").test(user),
+          (r) => new RegExp(r.aliases?.value ?? "^$").test(alias),
         ) &&
         merged.aliases?.[user] === undefined
       ) {
@@ -88,8 +104,8 @@ export function mergeSources({
     for (const [userReg, userDef] of Object.entries(data.users ?? {})) {
       const roles = userDef.roles.filter((role) =>
         allowed(
-          (r) => new RegExp(r.users?.key ?? "^.*$").test(userReg),
-          (r) => new RegExp(r.users?.value?.roles ?? "^.*$").test(role),
+          (r) => new RegExp(r.users?.key ?? "^$").test(userReg),
+          (r) => new RegExp(r.users?.value?.roles ?? "^$").test(role),
         ),
       );
       if (roles.length === 0) {
@@ -107,8 +123,8 @@ export function mergeSources({
     for (const [role, roleDef] of Object.entries(data.roles ?? {})) {
       const paths = roleDef.paths.filter((pathRegex) =>
         allowed(
-          (r) => new RegExp(r.roles?.key ?? "^.*$").test(role),
-          (r) => new RegExp(r.roles?.value?.paths ?? "^.*$").test(pathRegex),
+          (r) => new RegExp(r.roles?.key ?? "^$").test(role),
+          (r) => new RegExp(r.roles?.value?.paths ?? "^$").test(pathRegex),
         ),
       );
       if (paths.length === 0) {
@@ -123,43 +139,116 @@ export function mergeSources({
       }
     }
 
+    if (merged.loginPage === undefined && data.loginPage != null) {
+      merged.loginPage = data.loginPage;
+    }
+
+    const configAllowed = (
+      getRegex: (restriction: DomainSpecificRestriction) => string | undefined,
+      value: string,
+    ) => restrictions.every((r) => new RegExp(getRegex(r) ?? "^$").test(value));
+
     const config = data.config;
     if (config) {
       const mergedConfig = (merged.config ??= {});
-      if (config.ethereum?.rpc) {
-        const rpc = ((mergedConfig.ethereum ??= {}).rpc ??= []);
-        for (const r of config.ethereum.rpc) {
-          if (!rpc.includes(r)) {
-            rpc.push(r);
+
+      // scalar config values per category: first source wins, if allowed
+      const mergeScalars = <K extends string>(
+        target: { [key in K]?: unknown },
+        source: { [key in K]?: unknown },
+        keys: readonly K[],
+        getRestriction: (
+          restriction: DomainSpecificRestriction,
+          key: K,
+        ) => string | undefined,
+      ) => {
+        for (const key of keys) {
+          const value = source[key];
+          if (
+            target[key] === undefined &&
+            value != null &&
+            configAllowed((r) => getRestriction(r, key), String(value))
+          ) {
+            target[key] = value;
           }
         }
+      };
+
+      // list config values per category: merged as a union, every element
+      // must be allowed by the restrictions
+      const mergeList = <K extends string>(
+        target: { [key in K]?: string[] },
+        key: K,
+        source: string[] | undefined,
+        getRestriction: (
+          restriction: DomainSpecificRestriction,
+        ) => string | undefined,
+      ) => {
+        if (!source) {
+          return;
+        }
+        const list = (target[key] ??= []);
+        for (const item of source) {
+          if (!list.includes(item) && configAllowed(getRestriction, item)) {
+            list.push(item);
+          }
+        }
+      };
+
+      // object set config values per category: first source wins per key,
+      // every key must be allowed by the restrictions
+      const mergeObjectSet = <V>(
+        target: Record<string, V>,
+        source: Record<string, V> | undefined,
+        getRestriction: (
+          restriction: DomainSpecificRestriction,
+        ) => string | undefined,
+      ) => {
+        if (!source) {
+          return;
+        }
+        for (const [key, value] of Object.entries(source)) {
+          if (target[key] === undefined && configAllowed(getRestriction, key)) {
+            target[key] = value;
+          }
+        }
+      };
+
+      mergeScalars<"signatureDomain" | "cookieDomain" | "signatureExpiry">(
+        mergedConfig,
+        config,
+        ["signatureDomain", "cookieDomain", "signatureExpiry"],
+        (r, key) => r.config?.[key],
+      );
+      if (config.ethereum?.rpc) {
+        mergeList(
+          (mergedConfig.ethereum ??= {}),
+          "rpc",
+          config.ethereum.rpc,
+          (r) => r.config?.ethereum?.rpc,
+        );
       }
       if (config.appkit) {
         const appkit = (mergedConfig.appkit ??= {});
-        if (
-          appkit.projectid === undefined &&
-          config.appkit.projectid !== undefined
-        ) {
-          appkit.projectid = config.appkit.projectid;
-        }
-        if (config.appkit.networks) {
-          const networks = (appkit.networks ??= []);
-          for (const network of config.appkit.networks) {
-            if (!networks.includes(network)) {
-              networks.push(network);
-            }
-          }
-        }
+        mergeScalars<"projectid">(
+          appkit,
+          config.appkit,
+          ["projectid"],
+          (r, key) => r.config?.appkit?.[key],
+        );
+        mergeList(
+          appkit,
+          "networks",
+          config.appkit.networks,
+          (r) => r.config?.appkit?.networks,
+        );
       }
       if (config.password?.user) {
-        const user = ((mergedConfig.password ??= {}).user ??= {});
-        for (const [name, passwordUser] of Object.entries(
+        mergeObjectSet(
+          ((mergedConfig.password ??= {}).user ??= {}),
           config.password.user,
-        )) {
-          if (user[name] === undefined) {
-            user[name] = passwordUser;
-          }
-        }
+          (r) => r.config?.password?.user,
+        );
       }
     }
   }
