@@ -10,17 +10,15 @@ export interface Data {
 }
 
 export interface DomainData {
-  /// User -> Role, Clash: merge
-  /// If an alias exists for the user, role should be defined on the alias.
-  users?: { [user: string]: { roles: string[] } };
+  /// User -> Roles/Alias. Clash: roles merge, alias first.
+  /// If alias is set, roles on the same entry are ignored: roles are matched against the alias.
+  users?: { [user: string]: { roles: string[]; alias?: string | null } };
   /// Patterns -> Roles, Clash: merge
   /// Grants roles on demand to users matching the pattern
   userPatterns?: { patterns: string[]; roles: string[] }[];
   /// Role -> Path patterns, Clash: merge
   /// All patterns of some group must match to allow the path.
   roles?: { [role: string]: { pathPatterns: string[][] } };
-  /// User -> Alias, Clash: first
-  aliases?: { [user: string]: string };
   config?: {
     /// Subpath of the login page. Clash: first
     loginPage?: string | null;
@@ -55,10 +53,9 @@ export interface Restrictions {
 
 export interface DomainSpecificRestriction {
   domains: string;
-  users?: { key?: string; value?: { roles?: string } };
+  users?: { key?: string; value?: { roles?: string; alias?: string } };
   userPatterns?: { key?: string; value?: { roles?: string } };
   roles?: { key?: string; value?: { pathPatterns?: string } };
-  aliases?: { key?: string; value?: string };
   config?: {
     loginPage?: string;
     signatureDomain?: string;
@@ -90,28 +87,6 @@ export function mergeSources({
       (restriction) => new RegExp(restriction.domains).test(domain),
     );
 
-    const allowed = (
-      keyAllowed: (restriction: DomainSpecificRestriction) => boolean,
-      valueAllowed: (restriction: DomainSpecificRestriction) => boolean,
-    ) =>
-      restrictions.every(
-        (restriction) => keyAllowed(restriction) && valueAllowed(restriction),
-      );
-
-    for (const [user, alias] of Object.entries(data.aliases ?? {})) {
-      if (
-        allowed(
-          (restriction) =>
-            new RegExp(restriction.aliases?.key ?? "^$").test(user),
-          (restriction) =>
-            new RegExp(restriction.aliases?.value ?? "^$").test(alias),
-        ) &&
-        merged.aliases?.[user] === undefined
-      ) {
-        (merged.aliases ??= {})[user] = alias;
-      }
-    }
-
     for (const [user, userDef] of Object.entries(data.users ?? {})) {
       if (
         !restrictions.every((restriction) =>
@@ -130,6 +105,18 @@ export function mergeSources({
         ) {
           existing.roles.push(role);
         }
+      }
+
+      if (
+        existing.alias === undefined &&
+        userDef.alias != null &&
+        restrictions.every((restriction) =>
+          new RegExp(restriction.users?.value?.alias ?? "^$").test(
+            userDef.alias!,
+          ),
+        )
+      ) {
+        existing.alias = userDef.alias;
       }
     }
 
@@ -301,6 +288,21 @@ const cache = {} as {
   [id: string]: { data: Data; cachedAt: Date } | undefined;
 };
 
+// in-flight fetches, so concurrent requests for the same source share one fetch
+const pending = {} as { [id: string]: Promise<Data> | undefined };
+
+async function fetchSource({
+  id,
+}: {
+  id: "memory" | `external:${string}`;
+}): Promise<Data> {
+  const source = await _getSource({ id });
+  if (source.cache) {
+    cache[id] = { data: source.data, cachedAt: new Date() };
+  }
+  return source.data;
+}
+
 export async function getSource({
   id,
   cacheDuration = 60,
@@ -313,13 +315,10 @@ export async function getSource({
     return cached.data;
   }
 
-  const source = await _getSource({ id });
-  if (!source.cache) {
-    return source.data;
-  }
-
-  cache[id] = { data: source.data, cachedAt: new Date() };
-  return cache[id].data;
+  // coalesce concurrent fetches for the same source into one request
+  return (pending[id] ??= fetchSource({ id }).finally(() => {
+    delete pending[id];
+  }));
 }
 
 export async function updateSource({
@@ -327,12 +326,10 @@ export async function updateSource({
 }: {
   id: "memory" | `external:${string}`;
 }) {
-  const source = await _getSource({ id });
-  if (!source.cache) {
-    return;
-  }
-
-  cache[id] = { data: source.data, cachedAt: new Date() };
+  // force a refetch
+  await pending[id]?.catch(() => {});
+  delete cache[id];
+  await getSource({ id });
 }
 
 async function _getSource({

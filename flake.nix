@@ -73,17 +73,31 @@
                                   Roles on this domain to grant to this user.
                                 '';
                               };
+
+                              alias = lib.mkOption {
+                                type = lib.types.nullOr lib.types.str;
+                                default = null;
+                                example = "admin";
+                                description = ''
+                                  Alias for this user (the alias: prefix is appended automatically).
+                                  The alias is sent in Xnode-Auth-User instead of the raw user (which is in Xnode-Auth-User-Raw).
+                                  If set, roles on this entry are ignored: roles are matched against the alias.
+                                '';
+                              };
                             };
                           }
                         );
                         default = { };
                         example = {
                           "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = {
+                            alias = "plopmenz";
+                          };
+                          "alias:plopmenz" = {
                             roles = [ "admin" ];
                           };
                         };
                         description = ''
-                          Users to roles mapping.
+                          Users to roles/alias mapping.
                         '';
                       };
 
@@ -127,7 +141,6 @@
                             options = {
                               pathPatterns = lib.mkOption {
                                 type = lib.types.listOf (lib.types.listOf lib.types.str);
-                                default = [ ];
                                 example = [
                                   [
                                     "^\\/admin(?:\\?.*)?$"
@@ -151,25 +164,12 @@
                           "user" = {
                             pathPatterns = [ [ "^\\/user\\/profile(?:\\?.*)?$" ] ];
                           };
-                          "admin" = { };
+                          "admin" = {
+                            pathPatterns = [ [ ".*" ] ];
+                          };
                         };
                         description = ''
                           Role to allowed path patterns mapping.
-                        '';
-                      };
-
-                      aliases = lib.mkOption {
-                        type = lib.types.attrsOf lib.types.str;
-                        default = { };
-                        example = {
-                          "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = "admin";
-                          "password:plopmenz" = "plopmenz";
-                        };
-                        description = ''
-                          User to alias mapping. The alias: prefix is appended automatically, so an alias always starts with alias:.
-                          If an alias exists for an authenticated user, roles in users are matched against the alias.
-                          The alias is in Xnode-Auth-User instead of the raw user (which is in Xnode-Auth-User-Raw).
-                          For users with no alias Xnode-Auth-User = Xnode-Auth-User-Raw.
                         '';
                       };
 
@@ -304,7 +304,9 @@
                       }
                     ];
                     roles = {
-                      "user" = { };
+                      "user" = {
+                        pathPatterns = [ [ ".*" ] ];
+                      };
                     };
                   };
                   "admin.plopmenz.com" = {
@@ -319,6 +321,9 @@
                           "secret-admin"
                         ];
                       };
+                      "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = {
+                        alias = "plopmenz";
+                      };
                     };
                     roles = {
                       "secret-admin" = {
@@ -327,9 +332,6 @@
                       "admin" = {
                         pathPatterns = [ [ "^\/admin(?:\\?.*)?$" ] ];
                       };
-                    };
-                    aliases = {
-                      "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = "plopmenz";
                     };
                     paths = [
                       "/secret-admin"
@@ -417,6 +419,7 @@
                                       Regex that defines the user keys this source is allowed to define in users.
                                     '';
                                   };
+
                                   value = {
                                     roles = lib.mkOption {
                                       type = lib.types.str;
@@ -424,6 +427,15 @@
                                       example = "^(?!admin$).*$";
                                       description = ''
                                         Regex applied to every role this source is allowed to assign to a user in users.
+                                      '';
+                                    };
+
+                                    alias = lib.mkOption {
+                                      type = lib.types.str;
+                                      default = "^$";
+                                      example = "^(?!admin$).*$";
+                                      description = ''
+                                        Regex applied to every alias this source is allowed to assign to a user in users.
                                       '';
                                     };
                                   };
@@ -438,6 +450,7 @@
                                       Regex enforced on the matched user for userPatterns this source is allowed to define.
                                     '';
                                   };
+
                                   value = {
                                     roles = lib.mkOption {
                                       type = lib.types.str;
@@ -459,6 +472,7 @@
                                       Regex that defines the role keys this source is allowed to define in roles.
                                     '';
                                   };
+
                                   value = {
                                     pathPatterns = lib.mkOption {
                                       type = lib.types.str;
@@ -471,26 +485,6 @@
                                   };
                                 };
 
-                                aliases = {
-                                  key = lib.mkOption {
-                                    type = lib.types.str;
-                                    default = "^$";
-                                    example = "^ethereum:.*$";
-                                    description = ''
-                                      Regex that defines the user keys this source is allowed to define in aliases.
-                                    '';
-                                  };
-                                  value = lib.mkOption {
-                                    type = lib.types.str;
-                                    default = "^$";
-                                    example = "^(?!admin$).*$";
-                                    description = ''
-                                      Regex that defines the alias values this source is allowed to set
-                                      E.g. "^(?!admin$).*$" allows all aliases except admin.
-                                    '';
-                                  };
-                                };
-
                                 config = {
                                   loginPage = lib.mkOption {
                                     type = lib.types.str;
@@ -500,6 +494,7 @@
                                       Regex applied to the config loginPage value this source is allowed to set.
                                     '';
                                   };
+
                                   signatureDomain = lib.mkOption {
                                     type = lib.types.str;
                                     default = "^$";
@@ -508,6 +503,7 @@
                                       Regex applied to the config signatureDomain value this source is allowed to set.
                                     '';
                                   };
+
                                   cookieDomain = lib.mkOption {
                                     type = lib.types.str;
                                     default = "^$";
@@ -516,6 +512,7 @@
                                       Regex applied to the config cookieDomain value this source is allowed to set.
                                     '';
                                   };
+
                                   signatureExpiry = lib.mkOption {
                                     type = lib.types.str;
                                     default = "^$";
@@ -524,6 +521,7 @@
                                       Regex applied to the config signatureExpiry value (in seconds) this source is allowed to set.
                                     '';
                                   };
+
                                   ethereum = {
                                     rpc = lib.mkOption {
                                       type = lib.types.str;
@@ -534,6 +532,7 @@
                                       '';
                                     };
                                   };
+
                                   appkit = {
                                     projectid = lib.mkOption {
                                       type = lib.types.str;
@@ -543,6 +542,7 @@
                                         Regex applied to the config appkit projectid this source is allowed to set.
                                       '';
                                     };
+
                                     networks = lib.mkOption {
                                       type = lib.types.str;
                                       default = "^$";
@@ -552,6 +552,7 @@
                                       '';
                                     };
                                   };
+
                                   password = {
                                     user = lib.mkOption {
                                       type = lib.types.str;
@@ -569,11 +570,14 @@
                           default = [ ];
                           example = [
                             {
-                              # Only allow this source to define aliases (except admin) for domain xnode-auth.container, no user or role definitions
+                              # Only allow this source to define aliases (except admin) for domain xnode-auth.container, no role definitions
                               domains = "^xnode-auth.container$";
-                              aliases = {
+                              users = {
                                 key = "^.*$";
-                                value = "^(?!admin$).*$";
+                                value = {
+                                  roles = "^$";
+                                  alias = "^(?!admin$).*$";
+                                };
                               };
                             }
                             {
@@ -587,7 +591,7 @@
                           ];
                           description = ''
                             Restrictions that apply only to certain domains.
-                            They limit which users, userPatterns, roles, aliases, and config a source is allowed to define on the matching domains.
+                            They limit which users, userPatterns, roles, and config a source is allowed to define on the matching domains.
                             All restriction fields default to "^$" (denied), so everything has to be explicitly allowed (least privilege).
                             If no entry matches a domain, the source is unrestricted on that domain (still limited by restrictions.domains).
                             Definitions that are not allowed are ignored.

@@ -45,9 +45,9 @@ export function getAlias({ data, user }: { data: DomainData; user: string }): {
   alias: string;
   raw: string;
 } {
-  const aliasName = data.aliases?.[user];
+  const aliasName = data.users?.[user]?.alias;
   return {
-    alias: aliasName !== undefined ? `alias:${aliasName}` : user,
+    alias: aliasName ? `alias:${aliasName}` : user,
     raw: user,
   };
 }
