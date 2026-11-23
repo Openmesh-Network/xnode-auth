@@ -18,7 +18,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       sameSite: "strict",
       path: "/",
       // share the session cookies across subdomains for SSO when configured
-      ...(data.config?.cookieDomain ? { domain: data.config.cookieDomain } : {}),
+      ...(data.config?.cookieDomain
+        ? { domain: data.config.cookieDomain }
+        : {}),
     } as AstroCookieSetOptions;
     cookies.set("xnode_auth_user", body.user ?? "", cookieOptions);
     cookies.set("xnode_auth_signature", body.signature ?? "", cookieOptions);

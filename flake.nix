@@ -14,7 +14,7 @@
 
   outputs =
     inputs:
-    inputs.xnode-builders.language.auto {
+    inputs.xnode-builders.lib.builders.auto {
       src = ./.;
       framework = "astro-node-noext";
       module = {
@@ -230,8 +230,15 @@
 
                         loginMethods = lib.mkOption {
                           type = lib.types.listOf lib.types.str;
-                          default = [ "passkey" "ethereum" "password" ];
-                          example = [ "ethereum" "passkey" ];
+                          default = [
+                            "passkey"
+                            "ethereum"
+                            "password"
+                          ];
+                          example = [
+                            "ethereum"
+                            "passkey"
+                          ];
                           description = ''
                             Login methods shown as tabs on the login page, in tab order.
                             Methods not in this list are hidden.

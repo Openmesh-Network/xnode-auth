@@ -73,8 +73,7 @@ export async function submitLogin({
 
   if (res.status !== 200) {
     const body = (await res.json().catch(() => undefined)) as
-      | { error?: string }
-      | undefined;
+      { error?: string } | undefined;
     throw new Error(body?.error ?? `Login failed (${res.status}).`);
   }
 

@@ -1,5 +1,5 @@
 // @ts-check
-import { defineConfig } from 'astro/config';
+import { defineConfig } from "astro/config";
 
 import node from "@astrojs/node";
 
@@ -11,7 +11,7 @@ export default defineConfig({
 
   vite: {
     ssr: {
-      noExternal: true
+      noExternal: true,
     },
 
     plugins: [tailwindcss()],
