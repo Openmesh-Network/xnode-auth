@@ -1,5 +1,10 @@
 import { getMessage } from "../lib/message";
-import { loginStore, setLogin, type LoginMethod } from "../store/login";
+import {
+  DEFAULT_LOGIN_METHODS,
+  loginStore,
+  setLogin,
+  type LoginMethod,
+} from "../store/login";
 
 export function getRedirect(): string {
   const urlParams = new URLSearchParams(window.location.search);
@@ -103,7 +108,26 @@ export async function runLogin(task: () => Promise<void>): Promise<void> {
   }
 }
 
-export function initLoginShell(): void {
+export async function fetchLoginMethods(): Promise<string[]> {
+  try {
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    const res = await fetch(`${base}/api/login_methods`);
+    if (!res.ok) {
+      throw new Error(`Login methods request failed (${res.status}).`);
+    }
+    const body = (await res.json()) as { methods?: unknown };
+    if (Array.isArray(body.methods)) {
+      return body.methods.filter(
+        (method): method is string => typeof method === "string",
+      );
+    }
+    return DEFAULT_LOGIN_METHODS;
+  } catch {
+    return DEFAULT_LOGIN_METHODS;
+  }
+}
+
+export async function initLoginShell(): Promise<void> {
   const urlParams = new URLSearchParams(window.location.search);
   const redirect = getRedirect();
   const rejected = urlParams.get("rejected");
@@ -143,6 +167,25 @@ export function initLoginShell(): void {
       error: rejected,
       ...(method ? { method } : {}),
     });
+  }
+
+  // reorder the tabs to the configured order and hide unlisted methods;
+  // unknown entries in the list are ignored
+  const methods = await fetchLoginMethods();
+  const tablist = tabs[0]?.parentElement ?? null;
+  for (const method of methods) {
+    const tab = tabs.find((tab) => tab.dataset.loginTab === method);
+    if (tab && tablist) {
+      tablist.appendChild(tab);
+    }
+  }
+  tabs.forEach((tab) => {
+    tab.style.display = methods.includes(tab.dataset.loginTab ?? "")
+      ? ""
+      : "none";
+  });
+  if (methods.length > 0 && !methods.includes(loginStore.get().method)) {
+    setLogin({ method: methods[0] as LoginMethod });
   }
 
   loginStore.subscribe((state) => {

@@ -9,10 +9,14 @@ export interface LoginState {
     error: string | null;
 }
 
-export const DEFAULT_LOGIN_METHOD: LoginMethod = "passkey";
+export const DEFAULT_LOGIN_METHODS: LoginMethod[] = [
+    "passkey",
+    "ethereum",
+    "password",
+];
 
 export const loginStore = atom<LoginState>({
-    method: DEFAULT_LOGIN_METHOD,
+    method: DEFAULT_LOGIN_METHODS[0],
     busy: false,
     status: null,
     error: null,

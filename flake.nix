@@ -143,7 +143,7 @@
                                 type = lib.types.listOf (lib.types.listOf lib.types.str);
                                 example = [
                                   [
-                                    "^\\/admin$"
+                                    "^\\/admin(?:\/.*)?$"
                                     "^(?!\\/admin\\/super)"
                                     "^(?!\\/admin\\/edit)"
                                   ]
@@ -225,6 +225,16 @@
                           description = ''
                             Validity of a signature in seconds.
                             Signatures with a timestamp older than this are rejected.
+                          '';
+                        };
+
+                        loginMethods = lib.mkOption {
+                          type = lib.types.listOf lib.types.str;
+                          default = [ "passkey" "ethereum" "password" ];
+                          example = [ "ethereum" "passkey" ];
+                          description = ''
+                            Login methods shown as tabs on the login page, in tab order.
+                            Methods not in this list are hidden.
                           '';
                         };
 
@@ -327,10 +337,10 @@
                     };
                     roles = {
                       "secret-admin" = {
-                        pathPatterns = [ [ "^\/secret-admin$" ] ];
+                        pathPatterns = [ [ "^\/secret-admin(?:\/.*)?$" ] ];
                       };
                       "admin" = {
-                        pathPatterns = [ [ "^\/admin$" ] ];
+                        pathPatterns = [ [ "^\/admin(?:\/.*)?$" ] ];
                       };
                     };
                     locations = [
@@ -477,7 +487,7 @@
                                     pathPatterns = lib.mkOption {
                                       type = lib.types.str;
                                       default = "^$";
-                                      example = "^\\/public$";
+                                      example = "^\\/public(?:\/.*)?$";
                                       description = ''
                                         Patterns added to all path patterns this source defines on a role in roles.
                                       '';
@@ -519,6 +529,15 @@
                                     example = "^[0-9]+$";
                                     description = ''
                                       Regex applied to the config signatureExpiry value (in seconds) this source is allowed to set.
+                                    '';
+                                  };
+
+                                  loginMethods = lib.mkOption {
+                                    type = lib.types.str;
+                                    default = "^$";
+                                    example = "^(passkey|ethereum|password)$";
+                                    description = ''
+                                      Regex applied to every config loginMethods entry this source is allowed to add.
                                     '';
                                   };
 

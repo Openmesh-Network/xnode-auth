@@ -29,6 +29,8 @@ export interface DomainData {
     // Validity of a signature in seconds; signatures with a timestamp older than this are rejected.
     // Clash: first
     signatureExpiry?: number | null;
+    /// Login methods shown as tabs on the login page, in tab order. Clash: merge
+    loginMethods?: string[];
     ethereum?: {
       /// RPCs used to validate smart account signatures. Clash: merge
       rpc?: string[];
@@ -61,6 +63,7 @@ export interface DomainSpecificRestriction {
     signatureDomain?: string;
     cookieDomain?: string;
     signatureExpiry?: string;
+    loginMethods?: string;
     ethereum?: { rpc?: string };
     appkit?: { projectid?: string; networks?: string };
     password?: { user?: string };
@@ -247,6 +250,12 @@ export function mergeSources({
         config,
         ["loginPage", "signatureDomain", "cookieDomain", "signatureExpiry"],
         (restriction, key) => restriction.config?.[key],
+      );
+      mergeList(
+        mergedConfig,
+        "loginMethods",
+        config.loginMethods,
+        (restriction) => restriction.config?.loginMethods,
       );
       if (config.ethereum?.rpc) {
         mergeList(

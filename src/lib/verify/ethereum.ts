@@ -23,25 +23,37 @@ export async function verifyXnodeEthereumUser({
     return false;
   }
 
-  const rpcs = data.config?.ethereum?.rpc ?? [];
-  for (const rpc of rpcs) {
-    const publicClient = createPublicClient({
-      transport: http(rpc),
-    });
-    if (
-      await publicClient.verifyMessage({
-        address,
-        message,
-        signature,
-      })
-    ) {
+  // cheap local EOA check first
+  try {
+    if (await verifyMessage({ address, message, signature })) {
       return true;
     }
+  } catch {
+    // not a valid EOA signature, try smart account validation via rpc below
   }
 
-  return await verifyMessage({
-    address,
-    message,
-    signature,
-  });
+  // try all rpc clients concurrently
+  const rpcs = data.config?.ethereum?.rpc ?? [];
+  const results = await Promise.all(
+    rpcs.map(async (rpc) => {
+      try {
+        const publicClient = createPublicClient({
+          transport: http(rpc),
+        });
+        return await publicClient.verifyMessage({
+          address,
+          message,
+          signature,
+        });
+      } catch {
+        return false;
+      }
+    }),
+  );
+  if (results.some((valid) => valid)) {
+    // at least one rpc returned the signature is valid
+    return true;
+  }
+
+  return false;
 }

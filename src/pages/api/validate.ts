@@ -39,10 +39,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     });
 
     if (authenticated === undefined) {
-      // No requested user means that no login attempt has been made
-      throw new Error(
-        requestedUser === undefined ? "" : `Access denied for ${requestedUser}`,
-      );
+      throw new Error(`Access denied for ${requestedUser}`);
     }
 
     return new Response(null, {
