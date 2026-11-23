@@ -143,17 +143,17 @@
                                 type = lib.types.listOf (lib.types.listOf lib.types.str);
                                 example = [
                                   [
-                                    "^\\/admin(?:\\?.*)?$"
+                                    "^\\/admin$"
                                     "^(?!\\/admin\\/super)"
                                     "^(?!\\/admin\\/edit)"
                                   ]
                                   [
-                                    "^\\/secret(?:\\?.*)?$"
+                                    "^\\/secret$"
                                   ]
                                 ];
                                 description = ''
                                   Path pattern this role has access to.
-                                  Access is granted if all regex in some group matches the requested path.
+                                  Access is granted if all regex in some group match the normalized path (percent-decoded, no query string).
                                 '';
                               };
                             };
@@ -162,7 +162,7 @@
                         default = { };
                         example = {
                           "user" = {
-                            pathPatterns = [ [ "^\\/user\\/profile(?:\\?.*)?$" ] ];
+                            pathPatterns = [ [ "^\\/user\\/profile$" ] ];
                           };
                           "admin" = {
                             pathPatterns = [ [ ".*" ] ];
@@ -173,7 +173,7 @@
                         '';
                       };
 
-                      paths = lib.mkOption {
+                      locations = lib.mkOption {
                         type = lib.types.listOf lib.types.str;
                         default = [ "/" ];
                         example = [
@@ -181,7 +181,7 @@
                           "/secret"
                         ];
                         description = ''
-                          Paths to protect.
+                          Nginx locations to protect.
                         '';
                       };
 
@@ -327,13 +327,13 @@
                     };
                     roles = {
                       "secret-admin" = {
-                        pathPatterns = [ [ "^\/secret-admin(?:\\?.*)?$" ] ];
+                        pathPatterns = [ [ "^\/secret-admin$" ] ];
                       };
                       "admin" = {
-                        pathPatterns = [ [ "^\/admin(?:\\?.*)?$" ] ];
+                        pathPatterns = [ [ "^\/admin$" ] ];
                       };
                     };
-                    paths = [
+                    locations = [
                       "/secret-admin"
                       "/admin"
                     ];
@@ -477,7 +477,7 @@
                                     pathPatterns = lib.mkOption {
                                       type = lib.types.str;
                                       default = "^$";
-                                      example = "^\\/public(?:\\?.*)?$";
+                                      example = "^\\/public$";
                                       description = ''
                                         Patterns added to all path patterns this source defines on a role in roles.
                                       '';
@@ -684,7 +684,7 @@
                               error_page 401 = @login;
                             '';
                           }
-                        ) access.paths
+                        ) access.locations
                       ))
                       {
                         "^~ ${cfg.nginxConfig.subpath}/" = {

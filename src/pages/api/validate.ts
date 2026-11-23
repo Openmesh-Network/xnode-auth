@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { getDomainSources, hasAccess } from "../../lib/access";
 import { authenticate, loginRedirectResponse } from "../../lib/authenticate";
+import { normalizeRequestUri } from "../../lib/path";
 import { mergeSources, type DomainData } from "../../lib/source";
 
 export const prerender = false;
@@ -15,8 +16,9 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     }
 
     if (!path) {
-      throw new Error("Could not determine domain.");
+      throw new Error("Could not determine path.");
     }
+    const { path: normalizedPath } = normalizeRequestUri(path);
 
     const sources = await getDomainSources({ domain });
     data = mergeSources({ sources, domain });
@@ -32,7 +34,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
 
     const authenticated = await hasAccess({
       users: [requestedUser],
-      path,
+      path: normalizedPath,
       data,
     });
 
