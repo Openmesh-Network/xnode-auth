@@ -78,9 +78,6 @@
                         );
                         default = { };
                         example = {
-                          "regex:^ethereum:*.$" = {
-                            roles = [ "user" ];
-                          };
                           "ethereum:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = {
                             roles = [ "admin" ];
                           };
@@ -90,18 +87,62 @@
                         '';
                       };
 
+                      userPatterns = lib.mkOption {
+                        type = lib.types.listOf (
+                          lib.types.submodule {
+                            options = {
+                              patterns = lib.mkOption {
+                                type = lib.types.listOf lib.types.str;
+                                default = [ ];
+                                example = [ "^ethereum:.*$" ];
+                                description = ''
+                                  Regexes of users this rule applies to.
+                                  All regexes in the group must match the user.
+                                '';
+                              };
+                              roles = lib.mkOption {
+                                type = lib.types.listOf lib.types.str;
+                                default = [ ];
+                                example = [ "user" ];
+                                description = ''
+                                  Roles granted to users matching the pattern.
+                                '';
+                              };
+                            };
+                          }
+                        );
+                        default = [ ];
+                        example = [
+                          {
+                            patterns = [ "^(?!ip:).*$" ];
+                            roles = [ "user" ];
+                          }
+                        ];
+                        description = ''
+                          User pattern to roles mapping.
+                        '';
+                      };
+
                       roles = lib.mkOption {
                         type = lib.types.attrsOf (
                           lib.types.submodule {
                             options = {
-                              paths = lib.mkOption {
-                                type = lib.types.listOf lib.types.str;
-                                default = [ ".*" ];
+                              pathPatterns = lib.mkOption {
+                                type = lib.types.listOf (lib.types.listOf lib.types.str);
+                                default = [ [ ".*" ] ];
                                 example = [
-                                  "^(?:\\/admin|\\/secret)(?:\\?.*)?$"
+                                  [
+                                    "^\\/admin(?:\\?.*)?$"
+                                    "^(?!\\/admin\\/super)"
+                                    "^(?!\\/admin\\/edit)"
+                                  ]
+                                  [
+                                    "^\\/secret(?:\\?.*)?$"
+                                  ]
                                 ];
                                 description = ''
-                                  Regexes of paths this role has access to. Access is granted if any regex matches.
+                                  Path pattern this role has access to.
+                                  Access is granted if all regex in some group matches the requested path.
                                 '';
                               };
                             };
@@ -110,12 +151,12 @@
                         default = { };
                         example = {
                           "user" = {
-                            paths = [ "^\\/user\\/profile(?:\\?.*)?$" ];
+                            pathPatterns = [ [ "^\\/user\\/profile(?:\\?.*)?$" ] ];
                           };
                           "admin" = { };
                         };
                         description = ''
-                          Role to allowed paths mapping.
+                          Role to allowed path patterns mapping.
                         '';
                       };
                       aliases = lib.mkOption {
@@ -257,11 +298,12 @@
                 default = { };
                 example = {
                   "example.com" = {
-                    users = {
-                      "regex:^(?!ip:).*$" = {
+                    userPatterns = [
+                      {
+                        patterns = [ "^(?!ip:).*$" ];
                         roles = [ "user" ];
-                      };
-                    };
+                      }
+                    ];
                     roles = {
                       "user" = { };
                     };
@@ -281,10 +323,10 @@
                     };
                     roles = {
                       "secret-admin" = {
-                        paths = [ "^\/secret-admin(?:\\?.*)?$" ];
+                        pathPatterns = [ [ "^\/secret-admin(?:\\?.*)?$" ] ];
                       };
                       "admin" = {
-                        paths = [ "^\/admin(?:\\?.*)?$" ];
+                        pathPatterns = [ [ "^\/admin(?:\\?.*)?$" ] ];
                       };
                     };
                     aliases = {
@@ -389,12 +431,12 @@
                                     '';
                                   };
                                   value = {
-                                    paths = lib.mkOption {
+                                    pathPatterns = lib.mkOption {
                                       type = lib.types.str;
                                       default = "^$";
                                       example = "^\\/public(?:\\?.*)?$";
                                       description = ''
-                                        Regex applied to every paths regex this source is allowed to set on a role in roles.
+                                        Patterns added to all path patterns this source defines on a role in roles.
                                       '';
                                     };
                                   };
@@ -617,6 +659,7 @@
                           proxyPass = "http://127.0.0.1:${builtins.toString cfg.port}${cfg.nginxConfig.subpath}/api";
                           extraConfig = ''
                             proxy_set_header Host $server_name;
+                            proxy_set_header X-Forwarded-Proto $scheme;
                           '';
                         };
                         "^~ ${cfg.nginxConfig.subpath}/api/internal" = {

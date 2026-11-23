@@ -41,6 +41,17 @@ export async function getDomainSources({
   });
 }
 
+export function getAlias({ data, user }: { data: DomainData; user: string }): {
+  alias: string;
+  raw: string;
+} {
+  const aliasName = data.aliases?.[user];
+  return {
+    alias: aliasName !== undefined ? `alias:${aliasName}` : user,
+    raw: user,
+  };
+}
+
 export async function hasAccess({
   users,
   path,
@@ -51,24 +62,37 @@ export async function hasAccess({
   data: DomainData;
 }): Promise<{ alias: string; raw: string } | undefined> {
   for (const user of users) {
-    const aliasName = data.aliases?.[user];
-    const alias = aliasName !== undefined ? `alias:${aliasName}` : user;
+    const { alias, raw } = getAlias({ data, user });
 
-    for (const [userReg, userDef] of Object.entries(data.users ?? {})) {
-      // alias matches this userReg
-      const matches = userReg.startsWith("regex:")
-        ? new RegExp(userReg.replace("regex:", "")).test(alias)
-        : userReg === alias;
-      if (!matches) {
-        continue;
-      }
-
-      for (const role of userDef.roles) {
-        const paths = data.roles?.[role]?.paths;
-        // role exists and any of its paths regexes allows this path
-        if (paths?.some((pathRegex) => new RegExp(pathRegex).test(path))) {
-          return { alias, raw: user };
+    const hasRoleWithAccess = (roles: Set<string>) => {
+      for (const role of roles) {
+        const pathPatternGroups = data.roles?.[role]?.pathPatterns;
+        // access granted if any group fully matches the requested path
+        if (
+          pathPatternGroups?.some((group) =>
+            group.every((pattern) => new RegExp(pattern).test(path)),
+          )
+        ) {
+          return true;
         }
+      }
+      return false;
+    };
+
+    // exact user keys
+    for (const [userKey, userDef] of Object.entries(data.users ?? {})) {
+      if (userKey === alias && hasRoleWithAccess(userDef.roles)) {
+        return { alias, raw };
+      }
+    }
+
+    // pattern-based user rules
+    for (const rule of data.userPatterns ?? []) {
+      if (
+        rule.patterns.every((pattern) => new RegExp(pattern).test(alias)) &&
+        hasRoleWithAccess(rule.roles)
+      ) {
+        return { alias, raw };
       }
     }
   }

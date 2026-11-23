@@ -12,9 +12,13 @@ export interface Data {
 export interface DomainData {
   /// User -> Role, Clash: merge
   /// If an alias exists for the user, role should be defined on the alias.
-  users?: { [user: string]: { roles: string[] } };
-  /// Role -> Paths, Clash: merge
-  roles?: { [role: string]: { paths: string[] } };
+  users?: { [user: string]: { roles: Set<string> } };
+  /// Patterns -> Roles, Clash: merge
+  /// Grants roles on demand to users matching the pattern
+  userPatterns?: { patterns: string[]; roles: Set<string> }[];
+  /// Role -> Path patterns, Clash: merge
+  /// All patterns of some group must match to allow the path.
+  roles?: { [role: string]: { pathPatterns: string[][] } };
   /// User -> Alias, Clash: first
   aliases?: { [user: string]: string };
   /// Subpath of the login page. Clash: first
@@ -52,7 +56,7 @@ export interface Restrictions {
 export interface DomainSpecificRestriction {
   domains: string;
   users?: { key?: string; value?: { roles?: string } };
-  roles?: { key?: string; value?: { paths?: string } };
+  roles?: { key?: string; value?: { pathPatterns?: string } };
   aliases?: { key?: string; value?: string };
   config?: {
     signatureDomain?: string;
@@ -87,13 +91,18 @@ export function mergeSources({
     const allowed = (
       keyAllowed: (restriction: DomainSpecificRestriction) => boolean,
       valueAllowed: (restriction: DomainSpecificRestriction) => boolean,
-    ) => restrictions.every((r) => keyAllowed(r) && valueAllowed(r));
+    ) =>
+      restrictions.every(
+        (restriction) => keyAllowed(restriction) && valueAllowed(restriction),
+      );
 
     for (const [user, alias] of Object.entries(data.aliases ?? {})) {
       if (
         allowed(
-          (r) => new RegExp(r.aliases?.key ?? "^$").test(user),
-          (r) => new RegExp(r.aliases?.value ?? "^$").test(alias),
+          (restriction) =>
+            new RegExp(restriction.aliases?.key ?? "^$").test(user),
+          (restriction) =>
+            new RegExp(restriction.aliases?.value ?? "^$").test(alias),
         ) &&
         merged.aliases?.[user] === undefined
       ) {
@@ -101,41 +110,63 @@ export function mergeSources({
       }
     }
 
-    for (const [userReg, userDef] of Object.entries(data.users ?? {})) {
-      const roles = userDef.roles.filter((role) =>
-        allowed(
-          (r) => new RegExp(r.users?.key ?? "^$").test(userReg),
-          (r) => new RegExp(r.users?.value?.roles ?? "^$").test(role),
-        ),
-      );
-      if (roles.length === 0) {
+    for (const [user, userDef] of Object.entries(data.users ?? {})) {
+      if (
+        !restrictions.every((restriction) =>
+          new RegExp(restriction.users?.key ?? "^$").test(user),
+        )
+      ) {
         continue;
       }
       const users = (merged.users ??= {});
-      const existing = (users[userReg] ??= { roles: [] });
-      for (const role of roles) {
-        if (!existing.roles.includes(role)) {
-          existing.roles.push(role);
+      const existing = (users[user] ??= { roles: new Set<string>() });
+      for (const role of userDef.roles) {
+        if (
+          restrictions.every((restriction) =>
+            new RegExp(restriction.users?.value?.roles ?? "^$").test(role),
+          )
+        ) {
+          existing.roles.add(role);
         }
       }
     }
 
+    for (const rule of data.userPatterns ?? []) {
+      const roles = new Set<string>();
+      for (const role of rule.roles) {
+        if (
+          restrictions.every((restriction) =>
+            new RegExp(restriction.users?.value?.roles ?? "^$").test(role),
+          )
+        ) {
+          roles.add(role);
+        }
+      }
+
+      (merged.userPatterns ??= []).push({
+        patterns: [
+          ...rule.patterns,
+          ...restrictions.map((restriction) => restriction.users?.key ?? "^$"),
+        ],
+        roles,
+      });
+    }
+
     for (const [role, roleDef] of Object.entries(data.roles ?? {})) {
-      const paths = roleDef.paths.filter((pathRegex) =>
-        allowed(
-          (r) => new RegExp(r.roles?.key ?? "^$").test(role),
-          (r) => new RegExp(r.roles?.value?.paths ?? "^$").test(pathRegex),
-        ),
-      );
-      if (paths.length === 0) {
+      if (
+        !restrictions.every((restriction) =>
+          new RegExp(restriction.roles?.key ?? "^$").test(role),
+        )
+      ) {
         continue;
       }
+      const pathRestrictions = restrictions.map(
+        (restriction) => restriction.roles?.value?.pathPatterns ?? "^$",
+      );
       const roles = (merged.roles ??= {});
-      const existing = (roles[role] ??= { paths: [] });
-      for (const pathRegex of paths) {
-        if (!existing.paths.includes(pathRegex)) {
-          existing.paths.push(pathRegex);
-        }
+      const existing = (roles[role] ??= { pathPatterns: [] });
+      for (const pathPatternGroup of roleDef.pathPatterns) {
+        existing.pathPatterns.push([...pathPatternGroup, ...pathRestrictions]);
       }
     }
 
@@ -146,7 +177,10 @@ export function mergeSources({
     const configAllowed = (
       getRegex: (restriction: DomainSpecificRestriction) => string | undefined,
       value: string,
-    ) => restrictions.every((r) => new RegExp(getRegex(r) ?? "^$").test(value));
+    ) =>
+      restrictions.every((restriction) =>
+        new RegExp(getRegex(restriction) ?? "^$").test(value),
+      );
 
     const config = data.config;
     if (config) {
@@ -167,7 +201,10 @@ export function mergeSources({
           if (
             target[key] === undefined &&
             value != null &&
-            configAllowed((r) => getRestriction(r, key), String(value))
+            configAllowed(
+              (restriction) => getRestriction(restriction, key),
+              String(value),
+            )
           ) {
             target[key] = value;
           }
@@ -218,14 +255,14 @@ export function mergeSources({
         mergedConfig,
         config,
         ["signatureDomain", "cookieDomain", "signatureExpiry"],
-        (r, key) => r.config?.[key],
+        (restriction, key) => restriction.config?.[key],
       );
       if (config.ethereum?.rpc) {
         mergeList(
           (mergedConfig.ethereum ??= {}),
           "rpc",
           config.ethereum.rpc,
-          (r) => r.config?.ethereum?.rpc,
+          (restriction) => restriction.config?.ethereum?.rpc,
         );
       }
       if (config.appkit) {
@@ -234,20 +271,20 @@ export function mergeSources({
           appkit,
           config.appkit,
           ["projectid"],
-          (r, key) => r.config?.appkit?.[key],
+          (restriction, key) => restriction.config?.appkit?.[key],
         );
         mergeList(
           appkit,
           "networks",
           config.appkit.networks,
-          (r) => r.config?.appkit?.networks,
+          (restriction) => restriction.config?.appkit?.networks,
         );
       }
       if (config.password?.user) {
         mergeObjectSet(
           ((mergedConfig.password ??= {}).user ??= {}),
           config.password.user,
-          (r) => r.config?.password?.user,
+          (restriction) => restriction.config?.password?.user,
         );
       }
     }
