@@ -21,9 +21,9 @@ export interface DomainData {
   roles?: { [role: string]: { pathPatterns: string[][] } };
   /// User -> Alias, Clash: first
   aliases?: { [user: string]: string };
-  /// Subpath of the login page. Clash: first
-  loginPage?: string | null;
   config?: {
+    /// Subpath of the login page. Clash: first
+    loginPage?: string | null;
     /// Domain the signed message is computed over (the login page domain). Clash: first
     signatureDomain?: string | null;
     /// Domain attribute of the session cookies. Clash: first
@@ -59,6 +59,7 @@ export interface DomainSpecificRestriction {
   roles?: { key?: string; value?: { pathPatterns?: string } };
   aliases?: { key?: string; value?: string };
   config?: {
+    loginPage?: string;
     signatureDomain?: string;
     cookieDomain?: string;
     signatureExpiry?: string;
@@ -170,10 +171,6 @@ export function mergeSources({
       }
     }
 
-    if (merged.loginPage === undefined && data.loginPage != null) {
-      merged.loginPage = data.loginPage;
-    }
-
     const configAllowed = (
       getRegex: (restriction: DomainSpecificRestriction) => string | undefined,
       value: string,
@@ -251,10 +248,12 @@ export function mergeSources({
         }
       };
 
-      mergeScalars<"signatureDomain" | "cookieDomain" | "signatureExpiry">(
+      mergeScalars<
+        "loginPage" | "signatureDomain" | "cookieDomain" | "signatureExpiry"
+      >(
         mergedConfig,
         config,
-        ["signatureDomain", "cookieDomain", "signatureExpiry"],
+        ["loginPage", "signatureDomain", "cookieDomain", "signatureExpiry"],
         (restriction, key) => restriction.config?.[key],
       );
       if (config.ethereum?.rpc) {

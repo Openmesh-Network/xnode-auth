@@ -123,8 +123,8 @@ export function loginRedirectResponse({
   if (!redirectHost) {
     return new Response(null, { status: 401 });
   }
-  const loginPage = data.loginPage?.startsWith("/")
-    ? data.loginPage
+  const loginPage = data.config?.loginPage?.startsWith("/")
+    ? data.config.loginPage
     : import.meta.env.BASE_URL.replace(/\/$/, "");
   const redirectUrl = new URL(`${scheme}://${redirectHost}${loginPage}/`);
   if (domain && path) {

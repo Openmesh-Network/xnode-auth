@@ -159,6 +159,7 @@
                           Role to allowed path patterns mapping.
                         '';
                       };
+
                       aliases = lib.mkOption {
                         type = lib.types.attrsOf lib.types.str;
                         default = { };
@@ -186,17 +187,17 @@
                         '';
                       };
 
-                      loginPage = lib.mkOption {
-                        type = lib.types.str;
-                        default = cfg.nginxConfig.subpath;
-                        example = "/xnode-monetization";
-                        description = ''
-                          The subpath of the login page to redirect unauthenticated users to.
-                          The login page is always served on the config signatureDomain (or the protected domain itself when it is empty).
-                        '';
-                      };
-
                       config = {
+                        loginPage = lib.mkOption {
+                          type = lib.types.str;
+                          default = cfg.nginxConfig.subpath;
+                          example = "/xnode-monetization";
+                          description = ''
+                            The subpath of the login page to redirect unauthenticated users to.
+                            The login page is always served on the config signatureDomain (or the protected domain itself when it is empty).
+                          '';
+                        };
+
                         signatureDomain = lib.mkOption {
                           type = lib.types.str;
                           default = "";
@@ -463,6 +464,14 @@
                                 };
 
                                 config = {
+                                  loginPage = lib.mkOption {
+                                    type = lib.types.str;
+                                    default = "^$";
+                                    example = "^/xnode-auth$";
+                                    description = ''
+                                      Regex applied to the config loginPage value this source is allowed to set.
+                                    '';
+                                  };
                                   signatureDomain = lib.mkOption {
                                     type = lib.types.str;
                                     default = "^$";
@@ -550,7 +559,7 @@
                           ];
                           description = ''
                             Restrictions that apply only to certain domains.
-                            They limit which users, roles, aliases and config values a source is allowed to define on the matching domains.
+                            They limit which config values a source is allowed to define on the matching domains.
                             All restriction fields default to "^$" (denied), so everything has to be explicitly allowed (least privilege).
                             If no entry matches a domain, the source is unrestricted on that domain (still limited by restrictions.domains).
                             Definitions that are not allowed are ignored.
