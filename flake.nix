@@ -93,7 +93,6 @@
                             options = {
                               patterns = lib.mkOption {
                                 type = lib.types.listOf lib.types.str;
-                                default = [ ];
                                 example = [ "^ethereum:.*$" ];
                                 description = ''
                                   Regexes of users this rule applies to.
@@ -102,7 +101,6 @@
                               };
                               roles = lib.mkOption {
                                 type = lib.types.listOf lib.types.str;
-                                default = [ ];
                                 example = [ "user" ];
                                 description = ''
                                   Roles granted to users matching the pattern.
@@ -129,7 +127,7 @@
                             options = {
                               pathPatterns = lib.mkOption {
                                 type = lib.types.listOf (lib.types.listOf lib.types.str);
-                                default = [ [ ".*" ] ];
+                                default = [ ];
                                 example = [
                                   [
                                     "^\\/admin(?:\\?.*)?$"
@@ -378,6 +376,15 @@
                         '';
                       };
 
+                      cacheDuration = lib.mkOption {
+                        type = lib.types.int;
+                        default = 60;
+                        example = 10;
+                        description = ''
+                          How long (in seconds) fetched data from this source is cached before it is refetched.
+                        '';
+                      };
+
                       restrictions = {
                         domains = lib.mkOption {
                           type = lib.types.str;
@@ -417,6 +424,27 @@
                                       example = "^(?!admin$).*$";
                                       description = ''
                                         Regex applied to every role this source is allowed to assign to a user in users.
+                                      '';
+                                    };
+                                  };
+                                };
+
+                                userPatterns = {
+                                  key = lib.mkOption {
+                                    type = lib.types.str;
+                                    default = "^$";
+                                    example = "^ethereum:.*$";
+                                    description = ''
+                                      Regex enforced on the matched user for userPatterns this source is allowed to define.
+                                    '';
+                                  };
+                                  value = {
+                                    roles = lib.mkOption {
+                                      type = lib.types.str;
+                                      default = "^$";
+                                      example = "^(?!admin$).*$";
+                                      description = ''
+                                        Regex applied to every role this source is allowed to assign in userPatterns.
                                       '';
                                     };
                                   };
@@ -559,7 +587,7 @@
                           ];
                           description = ''
                             Restrictions that apply only to certain domains.
-                            They limit which config values a source is allowed to define on the matching domains.
+                            They limit which users, userPatterns, roles, aliases, and config a source is allowed to define on the matching domains.
                             All restriction fields default to "^$" (denied), so everything has to be explicitly allowed (least privilege).
                             If no entry matches a domain, the source is unrestricted on that domain (still limited by restrictions.domains).
                             Definitions that are not allowed are ignored.

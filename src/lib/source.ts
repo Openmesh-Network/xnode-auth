@@ -12,10 +12,10 @@ export interface Data {
 export interface DomainData {
   /// User -> Role, Clash: merge
   /// If an alias exists for the user, role should be defined on the alias.
-  users?: { [user: string]: { roles: Set<string> } };
+  users?: { [user: string]: { roles: string[] } };
   /// Patterns -> Roles, Clash: merge
   /// Grants roles on demand to users matching the pattern
-  userPatterns?: { patterns: string[]; roles: Set<string> }[];
+  userPatterns?: { patterns: string[]; roles: string[] }[];
   /// Role -> Path patterns, Clash: merge
   /// All patterns of some group must match to allow the path.
   roles?: { [role: string]: { pathPatterns: string[][] } };
@@ -56,6 +56,7 @@ export interface Restrictions {
 export interface DomainSpecificRestriction {
   domains: string;
   users?: { key?: string; value?: { roles?: string } };
+  userPatterns?: { key?: string; value?: { roles?: string } };
   roles?: { key?: string; value?: { pathPatterns?: string } };
   aliases?: { key?: string; value?: string };
   config?: {
@@ -120,34 +121,38 @@ export function mergeSources({
         continue;
       }
       const users = (merged.users ??= {});
-      const existing = (users[user] ??= { roles: new Set<string>() });
+      const existing = (users[user] ??= { roles: [] });
       for (const role of userDef.roles) {
         if (
           restrictions.every((restriction) =>
             new RegExp(restriction.users?.value?.roles ?? "^$").test(role),
           )
         ) {
-          existing.roles.add(role);
+          existing.roles.push(role);
         }
       }
     }
 
     for (const rule of data.userPatterns ?? []) {
-      const roles = new Set<string>();
+      const roles: string[] = [];
       for (const role of rule.roles) {
         if (
           restrictions.every((restriction) =>
-            new RegExp(restriction.users?.value?.roles ?? "^$").test(role),
+            new RegExp(restriction.userPatterns?.value?.roles ?? "^$").test(
+              role,
+            ),
           )
         ) {
-          roles.add(role);
+          roles.push(role);
         }
       }
 
       (merged.userPatterns ??= []).push({
         patterns: [
           ...rule.patterns,
-          ...restrictions.map((restriction) => restriction.users?.key ?? "^$"),
+          ...restrictions.map(
+            (restriction) => restriction.userPatterns?.key ?? "^$",
+          ),
         ],
         roles,
       });
@@ -298,19 +303,22 @@ const cache = {} as {
 
 export async function getSource({
   id,
+  cacheDuration = 60,
 }: {
   id: "memory" | `external:${string}`;
+  cacheDuration?: number;
 }): Promise<Data> {
-  if (!cache[id]) {
-    // optionally check cachedAt if we need to refresh data
-    const source = await _getSource({ id });
-    if (!source.cache) {
-      return source.data;
-    }
-
-    cache[id] = { data: source.data, cachedAt: new Date() };
+  const cached = cache[id];
+  if (cached && Date.now() - cached.cachedAt.getTime() < cacheDuration * 1000) {
+    return cached.data;
   }
 
+  const source = await _getSource({ id });
+  if (!source.cache) {
+    return source.data;
+  }
+
+  cache[id] = { data: source.data, cachedAt: new Date() };
   return cache[id].data;
 }
 

@@ -5,26 +5,26 @@ import {
   type Source,
 } from "./source";
 
-export async function* getSources() {
-  yield {
-    data: await getSource({ id: "memory" }),
-  };
-
+export async function getSources(): Promise<Source[]> {
   const env = process.env.XNODEAUTH_EXTERNALSOURCES;
-  if (!env) {
-    return;
-  }
-  const externalSources = JSON.parse(env) as {
-    source: string;
-    restrictions: Restrictions;
-  }[];
+  const externalSources = env
+    ? (JSON.parse(env) as {
+        source: string;
+        restrictions: Restrictions;
+        cacheDuration?: number;
+      }[])
+    : [];
 
-  for (const externalSource of externalSources) {
-    yield {
-      data: await getSource({ id: `external:${externalSource.source}` }),
+  return Promise.all([
+    getSource({ id: "memory" }).then((data) => ({ data })),
+    ...externalSources.map(async (externalSource) => ({
+      data: await getSource({
+        id: `external:${externalSource.source}`,
+        cacheDuration: externalSource.cacheDuration,
+      }),
       restrictions: externalSource.restrictions,
-    };
-  }
+    })),
+  ]);
 }
 
 export async function getDomainSources({
@@ -32,7 +32,7 @@ export async function getDomainSources({
 }: {
   domain: string;
 }): Promise<Source[]> {
-  return (await Array.fromAsync(getSources())).filter((source) => {
+  return (await getSources()).filter((source) => {
     // This source has no restrictions or is allowed for this domain
     if (!source.restrictions) {
       return true;
@@ -64,7 +64,7 @@ export async function hasAccess({
   for (const user of users) {
     const { alias, raw } = getAlias({ data, user });
 
-    const hasRoleWithAccess = (roles: Set<string>) => {
+    const hasRoleWithAccess = (roles: string[]) => {
       for (const role of roles) {
         const pathPatternGroups = data.roles?.[role]?.pathPatterns;
         // access granted if any group fully matches the requested path
