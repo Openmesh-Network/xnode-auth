@@ -120,21 +120,28 @@ export function loginRedirectResponse({
 }): Response {
   const scheme = request.headers.get("X-Forwarded-Proto") ?? "https";
   const redirectHost = data.config?.signatureDomain || domain;
-  if (!redirectHost) {
-    return new Response(null, { status: 401 });
-  }
   const loginPage = data.config?.loginPage?.startsWith("/")
     ? data.config.loginPage
     : import.meta.env.BASE_URL.replace(/\/$/, "");
-  const redirectUrl = new URL(`${scheme}://${redirectHost}${loginPage}/`);
-  if (domain && path) {
-    redirectUrl.searchParams.set("redirect", `${scheme}://${domain}${path}`);
+  try {
+    if (!redirectHost) {
+      throw new Error("Missing redirect host.");
+    }
+    const redirectUrl = new URL(`${scheme}://${redirectHost}${loginPage}/`);
+    if (domain && path) {
+      redirectUrl.searchParams.set("redirect", `${scheme}://${domain}${path}`);
+    }
+    redirectUrl.searchParams.set("rejected", error);
+    return new Response(null, {
+      status: 401,
+      headers: {
+        "Xnode-Auth-Redirect": redirectUrl.toString(),
+      },
+    });
+  } catch (error) {
+    console.warn(
+      `Redirect response construction for ${scheme}://${redirectHost}${loginPage}/ failed: ${error}`,
+    );
+    return new Response(null, { status: 401 });
   }
-  redirectUrl.searchParams.set("rejected", error);
-  return new Response(null, {
-    status: 401,
-    headers: {
-      "Xnode-Auth-Redirect": redirectUrl.toString(),
-    },
-  });
 }

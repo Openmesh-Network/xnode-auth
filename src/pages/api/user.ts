@@ -28,13 +28,13 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     const { alias, raw } = getAlias({ data, user: requestedUser });
 
     return Response.json({ user: alias, raw });
-  } catch (err: any) {
+  } catch (error: any) {
     return loginRedirectResponse({
       request,
       data,
       domain,
       path: null,
-      error: err.message,
+      error: error.message,
     });
   }
 };

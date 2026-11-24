@@ -51,13 +51,13 @@ export const GET: APIRoute = async ({ request, cookies }) => {
         "Xnode-Auth-User-Raw": authenticated.raw,
       },
     });
-  } catch (err: any) {
+  } catch (error: any) {
     return loginRedirectResponse({
       request,
       data,
       domain,
       path,
-      error: err.message,
+      error: error.message,
     });
   }
 };

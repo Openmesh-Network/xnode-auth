@@ -726,7 +726,6 @@
                           proxyPass = "http://127.0.0.1:${builtins.toString cfg.port}${cfg.nginxConfig.subpath}/api";
                           extraConfig = ''
                             proxy_set_header Host $server_name;
-                            proxy_set_header X-Forwarded-Proto $scheme;
                           '';
                         };
                         "^~ ${cfg.nginxConfig.subpath}/api/internal" = {
@@ -739,7 +738,6 @@
                           extraConfig = ''
                             proxy_set_header Host $server_name;
                             proxy_set_header Path $request_uri;
-                            proxy_set_header X-Forwarded-Proto $scheme;
 
                             proxy_pass_request_body off;
                             proxy_set_header Content-Length "";

@@ -360,8 +360,8 @@ async function _getSource({
       try {
         const fileContent = await readFile(path, { encoding: "utf-8" });
         return { data: JSON.parse(fileContent), cache: true };
-      } catch (err) {
-        console.error(`Error accessing ${id}: ${err}`);
+      } catch (error) {
+        console.error(`Error accessing ${id}: ${error}`);
         return { data: {}, cache: false };
       }
     }
@@ -371,8 +371,8 @@ async function _getSource({
         const response = await fetch(url);
         const data = await response.json();
         return { data, cache: true };
-      } catch (err) {
-        console.error(`Error accessing ${id}: ${err}`);
+      } catch (error) {
+        console.error(`Error accessing ${id}: ${error}`);
         return { data: {}, cache: false };
       }
     }
@@ -382,8 +382,8 @@ async function _getSource({
         const response = await fetch(url);
         const data = await response.json();
         return { data, cache: true };
-      } catch (err) {
-        console.error(`Error accessing ${id}: ${err}`);
+      } catch (error) {
+        console.error(`Error accessing ${id}: ${error}`);
         return { data: {}, cache: false };
       }
     }

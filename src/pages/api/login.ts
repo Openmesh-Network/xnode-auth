@@ -29,7 +29,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(null, {
       status: 200,
     });
-  } catch (err: any) {
-    return Response.json({ error: err?.message ?? err }, { status: 500 });
+  } catch (error: any) {
+    return Response.json({ error: error?.message ?? error }, { status: 500 });
   }
 };
